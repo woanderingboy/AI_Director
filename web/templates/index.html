@@ -1,0 +1,2696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Director · 短剧导演台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0e0e12; --bg2: #14141a; --bg3: #1a1a24; --bg4: #22222e;
+  --border: #282838; --border2: #333348;
+  --t1: #e8e8f0; --t2: #9898b0; --t3: #5c5c78;
+  --purple: #7c6aef; --purple-dim: rgba(124,106,239,0.12); --purple-glow: rgba(124,106,239,0.25);
+  --blue: #5b9cf5; --blue-dim: rgba(91,156,245,0.12);
+  --green: #4ecb8d; --green-dim: rgba(78,203,141,0.12);
+  --amber: #f0b44a; --amber-dim: rgba(240,180,74,0.12);
+  --rose: #ef6a8a; --rose-dim: rgba(239,106,138,0.12);
+  --cyan: #5bc5d4; --cyan-dim: rgba(91,197,212,0.12);
+  --font: 'Noto Sans SC', system-ui, sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --r: 8px; --r2: 12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--font);background:var(--bg);color:var(--t1);min-height:100vh;line-height:1.55;-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:inherit;color:inherit}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+a{color:var(--purple);text-decoration:none}
+
+.app{display:flex;width:100%;min-height:100vh}
+
+/* Sidebar */
+.sidebar{width:240px;min-width:240px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar__brand{display:flex;align-items:center;gap:10px;padding:0 16px 20px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.sidebar__brand-icon{width:34px;height:34px;border-radius:var(--r);background:linear-gradient(135deg,var(--purple),var(--blue));display:flex;align-items:center;justify-content:center;font-size:1rem}
+.sidebar__brand-text{font-weight:600;font-size:1rem}
+.sidebar__brand-sub{font-size:0.68rem;color:var(--t3)}
+.nav-group{margin-bottom:20px}
+.nav-group__label{font-size:0.68rem;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:0.1em;padding:0 16px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 16px;font-size:0.82rem;color:var(--t2);cursor:pointer;transition:all .12s}
+.nav-item:hover{background:var(--bg4);color:var(--t1)}
+.nav-item.active{background:var(--purple-dim);color:var(--purple);border-right:2px solid var(--purple)}
+.nav-item__icon{width:18px;text-align:center;font-size:.95rem}
+.sidebar__footer{margin-top:auto;padding:12px 16px;border-top:1px solid var(--border)}
+
+/* Main */
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg2);position:sticky;top:0;z-index:50}
+.top-bar__left{display:flex;align-items:center;gap:12px}
+.top-bar__title{font-size:1.05rem;font-weight:600}
+.top-bar__breadcrumb{font-size:0.75rem;color:var(--t3)}
+.top-bar__right{display:flex;align-items:center;gap:8px}
+.content{flex:1;padding:24px;overflow-y:auto}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--r);font-size:.8rem;font-weight:500;transition:all .15s;border:1px solid var(--border);background:var(--bg3);color:var(--t2)}
+.btn:hover{background:var(--bg4);color:var(--t1);border-color:var(--border2)}
+.btn:active{transform:scale(.97)}
+.btn--primary{background:var(--purple);border-color:var(--purple);color:#fff}
+.btn--primary:hover{background:#6a56d9;box-shadow:0 4px 12px var(--purple-glow)}
+.btn--green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.btn--green:hover{background:var(--green);color:#0e0e12}
+.btn--amber{background:var(--amber-dim);border-color:var(--amber);color:var(--amber)}
+.btn--rose{background:var(--rose-dim);border-color:var(--rose);color:var(--rose)}
+.btn--sm{padding:5px 10px;font-size:.75rem}
+.btn--lg{padding:10px 20px;font-size:.9rem}
+.btn--ghost{border:none;background:none}
+.btn--icon{width:32px;height:32px;padding:0;font-size:1rem}
+
+/* Cards */
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:18px;transition:all .2s}
+.card:hover{border-color:var(--border2);transform:translateY(-1px);box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+
+/* Forms */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:.78rem;font-weight:500;color:var(--t2);margin-bottom:5px}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);font-size:.85rem;outline:none;transition:border-color .15s}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{border-color:var(--purple)}
+.form-group textarea{resize:vertical;min-height:80px}
+.form-group input::placeholder,.form-group textarea::placeholder{color:var(--t3)}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.show{opacity:1;pointer-events:auto}
+.modal{background:var(--bg3);border:1px solid var(--border);border-radius:16px;width:520px;max-width:90vw;max-height:85vh;overflow-y:auto;transform:scale(.95) translateY(10px);transition:transform .25s cubic-bezier(.16,1,.3,1)}
+.modal-overlay.show .modal{transform:scale(1) translateY(0)}
+.modal__header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px}
+.modal__title{font-size:1rem;font-weight:600}
+.modal__close{width:28px;height:28px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:var(--t3);transition:all .12s}
+.modal__close:hover{background:var(--bg4);color:var(--t1)}
+.modal__body{padding:0 22px 22px}
+.modal__footer{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--border)}
+
+/* Workflow */
+.workflow{display:flex;gap:14px;margin-bottom:32px}
+.workflow-step{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:18px;cursor:pointer;transition:all .2s;position:relative}
+.workflow-step:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.workflow-step__num{font-family:var(--mono);font-size:.62rem;font-weight:600;color:var(--t3);letter-spacing:.06em;margin-bottom:8px}
+.workflow-step__icon{font-size:1.4rem;margin-bottom:8px}
+.workflow-step__title{font-size:.88rem;font-weight:600;margin-bottom:3px}
+.workflow-step__desc{font-size:.72rem;color:var(--t3);line-height:1.5}
+.workflow-step__arrow{position:absolute;right:-12px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.85rem;z-index:2}
+
+/* Section */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.section-title{font-size:.95rem;font-weight:600;display:flex;align-items:center;gap:8px}
+
+/* Status badges */
+.badge{font-size:.65rem;font-weight:500;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.badge--green{background:var(--green-dim);color:var(--green)}
+.badge--blue{background:var(--blue-dim);color:var(--blue)}
+.badge--amber{background:var(--amber-dim);color:var(--amber)}
+.badge--purple{background:var(--purple-dim);color:var(--purple)}
+.badge--rose{background:var(--rose-dim);color:var(--rose)}
+.badge--gray{background:var(--bg4);color:var(--t3)}
+
+/* Progress bar */
+.progress{height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;margin:8px 0 6px}
+.progress__fill{height:100%;border-radius:2px;transition:width .3s}
+
+/* Table */
+.table{width:100%;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:.82rem}
+.table th{font-weight:600;color:var(--t3);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em}
+.table tr:hover td{background:var(--bg4)}
+
+/* Tabs */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:20px}
+.tab{padding:10px 18px;font-size:.82rem;font-weight:500;color:var(--t3);border-bottom:2px solid transparent;cursor:pointer;transition:all .15s}
+.tab:hover{color:var(--t2)}
+.tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+
+/* Filters */
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.filter{padding:5px 12px;border-radius:20px;font-size:.78rem;font-weight:500;color:var(--t3);background:var(--bg3);border:1px solid var(--border);cursor:pointer;transition:all .15s}
+.filter:hover{color:var(--t2);border-color:var(--border2)}
+.filter.active{background:var(--purple-dim);color:var(--purple);border-color:rgba(124,106,239,.3)}
+
+/* Grid layouts */
+.asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.asset-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;cursor:pointer;transition:all .2s}
+.asset-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.asset-card__image{width:100%;aspect-ratio:1;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:2.2rem;color:var(--t3)}
+.asset-card__body{padding:10px}
+.asset-card__name{font-size:.8rem;font-weight:500;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.asset-card__meta{font-size:.68rem;color:var(--t3);display:flex;align-items:center;justify-content:space-between}
+
+/* Empty state */
+.empty{text-align:center;padding:48px 20px;color:var(--t3)}
+.empty__icon{font-size:2.5rem;margin-bottom:12px;opacity:.4}
+.empty__title{font-size:.95rem;font-weight:600;color:var(--t2);margin-bottom:4px}
+.empty__desc{font-size:.82rem;margin-bottom:16px}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);padding:10px 22px;background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r2);font-size:.82rem;color:var(--t1);opacity:0;pointer-events:none;transition:all .3s cubic-bezier(.16,1,.3,1);z-index:300}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Task list */
+.task-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px}
+.task-item__info{flex:1;min-width:0}
+.task-item__name{font-size:.82rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task-item__stage{font-size:.7rem;color:var(--t3);margin-top:2px}
+.task-item__progress{width:120px}
+.task-item__status{font-size:.72rem;font-weight:500}
+
+/* Provider config */
+.provider-card{display:flex;align-items:center;gap:14px;padding:14px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px}
+.provider-card__info{flex:1}
+.provider-card__name{font-size:.88rem;font-weight:500}
+.provider-card__url{font-size:.72rem;color:var(--t3);font-family:var(--mono);margin-top:2px}
+.provider-card__key{font-size:.72rem;margin-top:2px}
+.provider-card__actions{display:flex;gap:6px}
+
+/* Animations */
+@keyframes fade-up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-up{animation:fade-up .35s ease-out both}
+.fade-up:nth-child(1){animation-delay:.03s}
+.fade-up:nth-child(2){animation-delay:.06s}
+.fade-up:nth-child(3){animation-delay:.09s}
+.fade-up:nth-child(4){animation-delay:.12s}
+
+/* Script editor */
+.script-editor{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);display:flex;flex-direction:column;height:calc(100vh - 200px)}
+.script-editor__toolbar{display:flex;align-items:center;gap:6px;padding:10px 14px;border-bottom:1px solid var(--border)}
+.script-editor__body{flex:1;padding:20px;overflow-y:auto}
+.script-editor__body textarea{width:100%;height:100%;background:transparent;border:none;outline:none;resize:none;font-size:.88rem;line-height:1.8;color:var(--t1)}
+
+/* Storyboard */
+.sb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.sb-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;cursor:pointer;transition:all .2s}
+.sb-card:hover{border-color:var(--border2);transform:translateY(-1px)}
+.sb-card__image{width:100%;aspect-ratio:16/9;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:1.8rem;color:var(--t3);position:relative}
+.sb-card__shot{position:absolute;top:8px;left:8px;font-family:var(--mono);font-size:.62rem;font-weight:600;padding:2px 6px;background:rgba(0,0,0,.6);border-radius:3px;color:var(--t1)}
+.sb-card__body{padding:12px}
+.sb-card__prompt{font-size:.78rem;color:var(--t2);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:8px}
+.sb-card__meta{font-size:.68rem;color:var(--t3);display:flex;align-items:center;justify-content:space-between}
+
+/* Layout helpers */
+.flex{display:flex}.flex-col{flex-direction:column}.gap-2{gap:8px}.gap-3{gap:12px}.gap-4{gap:16px}
+.items-center{align-items:center}.justify-between{justify-content:space-between}.flex-1{flex:1}.min-w-0{min-width:0}
+.text-sm{font-size:.82rem}.text-xs{font-size:.72rem}.text-muted{color:var(--t3)}.text-right{text-align:right}
+.mt-2{margin-top:8px}.mt-4{margin-top:16px}.mb-2{margin-bottom:8px}.mb-4{margin-bottom:16px}
+.w-full{width:100%}
+
+/* Novel chat bubbles */
+#chatMessages > div { margin-bottom: 12px; }
+#chatMessages .user-bubble {
+  display: inline-block;
+  background: var(--purple-dim);
+  padding: 8px 14px;
+  border-radius: 12px 12px 4px 12px;
+  font-size: .85rem;
+  max-width: 80%;
+}
+#chatMessages .ai-bubble {
+  display: inline-block;
+  background: var(--bg4);
+  padding: 8px 14px;
+  border-radius: 12px 12px 12px 4px;
+  font-size: .85rem;
+  max-width: 80%;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+/* Novel workflow step highlights */
+.workflow-step.completed { border-color: var(--green); }
+.workflow-step.completed .workflow-step__icon { opacity: 1; }
+.workflow-step.active { border-color: var(--purple); background: var(--purple-dim); }
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<div class="modal-overlay" id="modal"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════ API ═══════════ */
+const API = '/api';
+async function api(path, opts = {}) {
+  const url = API + path;
+  const config = { headers: { 'Content-Type': 'application/json' }, ...opts };
+  if (config.body && typeof config.body === 'object') config.body = JSON.stringify(config.body);
+  const res = await fetch(url, config);
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || res.statusText); }
+  return res.json();
+}
+
+/* ═══════════ STATE ═══════════ */
+const S = {
+  view: 'novel',
+  projects: [],
+  currentProject: null,
+  currentTab: 'chapters',
+  chapters: [],
+  tasks: [],
+  providers: [],
+  globalAssets: {},
+  // Novel module
+  novelProject: null,
+  novelStage: 'world',  // world/character/outline/chapters/write/chat
+  novelWorld: null,
+  novelCharacters: [],
+  novelOutline: null,
+  novelPlotPoints: [],
+  novelChapters: [],
+  novelCurrentChapter: null,
+  novelScenes: [],
+};;
+
+/* ═══════════ RENDER ENGINE ═══════════ */
+function h(tag, attrs, ...children) {
+  const el = document.createElement(tag);
+  if (attrs) Object.entries(attrs).forEach(([k, v]) => {
+    if (k === 'onclick') el.onclick = v;
+    else if (k === 'className') el.className = v;
+    else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+    else if (k === 'innerHTML') el.innerHTML = v;
+    else el.setAttribute(k, v);
+  });
+  children.flat().forEach(c => {
+    if (c == null) return;
+    el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  });
+  return el;
+}
+
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML = '';
+  app.appendChild(renderSidebar());
+  app.appendChild(renderMain());
+}
+
+/* ═══════════ SIDEBAR ═══════════ */
+function renderSidebar() {
+  const sb = h('aside', { className: 'sidebar' });
+  sb.innerHTML = `
+    <div class="sidebar__brand">
+      <div class="sidebar__brand-icon">🎬</div>
+      <div><div class="sidebar__brand-text">AI Director</div><div class="sidebar__brand-sub">短剧导演台</div></div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group__label">创作流程</div>
+      <div class="nav-item ${S.view==='novel'?'active':''}" data-view="novel"><span class="nav-item__icon">✍</span> 小说创作</div>
+      <div class="nav-item ${S.view==='projects'?'active':''}" data-view="projects"><span class="nav-item__icon">📁</span> 项目管理</div>
+      <div class="nav-item ${S.view==='asset-packages'?'active':''}" data-view="asset-packages"><span class="nav-item__icon">📦</span> 素材打包</div>
+      <div class="nav-group__label" style="margin-top:16px">系统设置</div>
+      <div class="nav-item ${S.view==='providers'?'active':''}" data-view="providers"><span class="nav-item__icon">🤖</span> 大模型配置</div>
+      <div class="nav-item ${S.view==='global-assets'?'active':''}" data-view="global-assets"><span class="nav-item__icon">🗂</span> 全局资产库</div>
+      <div class="nav-item ${S.view==='tasks'?'active':''}" data-view="tasks"><span class="nav-item__icon">⚡</span> 任务中心</div>
+      <div class="nav-item ${S.view==='settings'?'active':''}" data-view="settings"><span class="nav-item__icon">⚙</span> 系统设置</div>
+      <div class="nav-item ${S.view==='help'?'active':''}" data-view="help"><span class="nav-item__icon">❓</span> 使用帮助</div>
+    </div>
+  `;
+  sb.querySelectorAll('.nav-item').forEach(el => {
+    el.onclick = () => { S.view = el.dataset.view; S.currentProject = null; render(); loadData(); };
+  });
+  return sb;
+}
+
+/* ═══════════ MAIN AREA ═══════════ */
+function renderMain() {
+  const main = h('div', { className: 'main' });
+  main.appendChild(renderTopBar());
+  const content = h('div', { className: 'content', id: 'content' });
+  main.appendChild(content);
+
+  // Render view
+  requestAnimationFrame(() => {
+    const c = document.getElementById('content');
+    if (!c) return;
+    switch (S.view) {
+      case 'dashboard': renderNovelHome(c); break;
+      case 'projects': renderProjects(c); break;
+      case 'project-detail': renderProjectDetail(c); break;
+      case 'global-assets': renderGlobalAssets(c); break;
+      case 'providers': renderProviders(c); break;
+      case 'tasks': renderTasks(c); break;
+      case 'prompt-library': renderPromptLibrary(c); break;
+      case 'novel': renderNovelHome(c); break;
+      case 'novel-project': renderNovelProject(c); break;
+      case 'asset-packages': renderAssetPackages(c); break;
+      case 'settings': renderSettings(c); break;
+      case 'help': renderHelp(c); break;
+    }
+  });
+  return main;
+}
+
+function renderTopBar() {
+  const titles = {
+    'dashboard': '控制台', 'projects': '项目管理', 'project-detail': S.currentProject?.name || '项目',
+    'global-assets': '全局资产', 'providers': '大模型配置', 'tasks': '任务中心', 'prompt-library': 'Prompt词库',
+    'novel': '小说创作', 'novel-project': S.novelProject?.name || '小说创作',
+    'asset-packages': '素材打包',
+    'settings': '系统设置',
+    'help': '使用帮助',
+  };
+  const bar = h('div', { className: 'top-bar' });
+  bar.innerHTML = `
+    <div class="top-bar__left">
+      <div class="top-bar__title">${titles[S.view] || ''}</div>
+      ${S.currentProject && S.view === 'project-detail' ? `<div class="top-bar__breadcrumb">项目管理 / ${S.currentProject.name}</div>` : ''}
+    </div>
+    <div class="top-bar__right">
+      ${S.view === 'projects' || S.view === 'dashboard' ? '<button class="btn btn--primary btn--sm" id="btnNewProject">＋ 新建项目</button>' : ''}
+      ${S.view === 'project-detail' ? '<button class="btn btn--sm" id="btnBack">← 返回</button>' : ''}
+      ${S.view === 'novel-project' ? '<button class="btn btn--sm" id="btnBackNovel">← 返回</button>' : ''}
+    </div>
+  `;
+  const btnNew = bar.querySelector('#btnNewProject');
+  if (btnNew) btnNew.onclick = () => showNewProjectModal();
+  const btnBack = bar.querySelector('#btnBack');
+  if (btnBack) btnBack.onclick = () => { S.view = 'novel'; S.currentProject = null; render(); };
+  const btnBackNovel = bar.querySelector('#btnBackNovel');
+  if (btnBackNovel) btnBackNovel.onclick = () => { S.view = 'novel'; S.novelProject = null; render(); };
+  return bar;
+}
+
+/* ═══════════ DASHBOARD ═══════════ */
+function renderDashboard(c) {
+  c.innerHTML = `
+    <div class="workflow">
+      <div class="workflow-step fade-up"><div class="workflow-step__num">STEP 01</div><div class="workflow-step__icon">📥</div><div class="workflow-step__title">创建/导入项目</div><div class="workflow-step__desc">新建项目并上传小说章节</div><span class="workflow-step__arrow">→</span></div>
+      <div class="workflow-step fade-up"><div class="workflow-step__num">STEP 02</div><div class="workflow-step__icon">📖</div><div class="workflow-step__title">小说→剧本</div><div class="workflow-step__desc">AI 将小说转换为结构化剧本</div><span class="workflow-step__arrow">→</span></div>
+      <div class="workflow-step fade-up"><div class="workflow-step__num">STEP 03</div><div class="workflow-step__icon">🎬</div><div class="workflow-step__title">剧本→分镜Prompt</div><div class="workflow-step__desc">逐场景生成电影级视觉提示词</div><span class="workflow-step__arrow">→</span></div>
+      <div class="workflow-step fade-up"><div class="workflow-step__num">STEP 04</div><div class="workflow-step__icon">🖼</div><div class="workflow-step__title">生成图片/视频</div><div class="workflow-step__desc">调用 AI 生成分镜图与成片</div></div>
+    </div>
+    <div class="section-header"><div class="section-title">📋 最近项目</div></div>
+    <div class="card-grid" id="dashProjects"></div>
+  `;
+  renderProjectCards(document.getElementById('dashProjects'));
+}
+
+/* ═══════════ PROJECTS LIST ═══════════ */
+function renderProjects(c) {
+  c.innerHTML = `
+    <div class="section-header"><div class="section-title">📁 全部项目</div><button class="btn btn--primary btn--sm" id="btnNew2">＋ 新建</button></div>
+    <div class="card-grid" id="projectGrid"></div>
+  `;
+  c.querySelector('#btnNew2').onclick = () => showNewProjectModal();
+  renderProjectCards(document.getElementById('projectGrid'));
+}
+
+function renderProjectCards(container) {
+  if (!container) return;
+  if (!S.projects.length) {
+    container.innerHTML = '<div class="empty"><div class="empty__icon">📂</div><div class="empty__title">暂无项目</div><div class="empty__desc">点击上方按钮创建第一个项目</div></div>';
+    return;
+  }
+  container.innerHTML = S.projects.map(p => `
+    <div class="card fade-up" data-id="${p.id}" style="cursor:pointer">
+      <div class="flex items-center justify-between mb-2">
+        <div style="font-weight:600;font-size:.92rem">${esc(p.name)}</div>
+        <span class="badge badge--blue">${p.chapter_count || 0} 章</span>
+      </div>
+      <div class="text-sm text-muted mb-2">${esc(p.description || '暂无描述')}</div>
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-muted">${esc(p.genre)} · ${p.updated_time || ''}</span>
+        <div class="flex gap-2">
+          <button class="btn btn--sm btn--rose" data-del="${p.id}" data-name="${esc(p.name)}">删除</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  container.querySelectorAll('.card').forEach(el => {
+    el.onclick = () => openProject(parseInt(el.dataset.id));
+  });
+  container.querySelectorAll('button[data-del]').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.del;
+      const name = btn.dataset.name;
+      if (confirm(`确定删除项目「${name}」？此操作不可恢复。`)) {
+        await api(`/projects/${id}`, { method: 'DELETE' });
+        toast(`项目「${name}」已删除`);
+        loadProjects();
+      }
+    };
+  });
+}
+
+/* ═══════════ PROJECT DETAIL ═══════════ */
+function renderProjectDetail(c) {
+  const tabs = [
+    { key: 'chapters', label: '📖 小说章节' },
+    { key: 'scripts', label: '📝 剧本' },
+    { key: 'storyboard', label: '🎞 分镜' },
+    { key: 'prompts', label: '🎨 提示词' },
+    { key: 'config', label: '⚙ 项目配置' },
+  ];
+  c.innerHTML = `
+    <div class="tabs">${tabs.map(t => `<div class="tab ${S.currentTab===t.key?'active':''}" data-tab="${t.key}">${t.label}</div>`).join('')}</div>
+    <div id="tabContent"></div>
+  `;
+  c.querySelectorAll('.tab').forEach(el => {
+    el.onclick = () => { S.currentTab = el.dataset.tab; renderProjectDetail(c); };
+  });
+  const tc = document.getElementById('tabContent');
+  switch (S.currentTab) {
+    case 'chapters': renderChaptersTab(tc); break;
+    case 'scripts': renderScriptsTab(tc); break;
+    case 'storyboard': renderStoryboardTab(tc); break;
+    case 'prompts': renderPromptsTab(tc); break;
+    case 'config': renderProjectConfigTab(tc); break;
+  }
+}
+
+function renderChaptersTab(c) {
+  c.innerHTML = `
+    <div class="section-header"><div class="section-title">📖 章节列表</div><button class="btn btn--primary btn--sm" id="btnAddChapter">＋ 添加章节</button></div>
+    <div id="chapterList"></div>
+  `;
+  c.querySelector('#btnAddChapter').onclick = () => showAddChapterModal();
+  const list = document.getElementById('chapterList');
+  if (!S.chapters.length) {
+    list.innerHTML = '<div class="empty"><div class="empty__icon">📖</div><div class="empty__title">暂无章节</div><div class="empty__desc">点击「添加章节」上传小说文本</div></div>';
+    return;
+  }
+  list.innerHTML = `<table class="table"><thead><tr><th>标题</th><th>文件名</th><th>剧本数</th><th>更新时间</th><th>操作</th></tr></thead><tbody>${
+    S.chapters.map(ch => `<tr>
+      <td style="font-weight:500">${esc(ch.title)}</td>
+      <td class="text-muted">${esc(ch.filename)}</td>
+      <td>${ch.script_count || 0}</td>
+      <td class="text-muted">${ch.updated_time || ''}</td>
+      <td>
+        <button class="btn btn--sm btn--green" data-action="novel2script" data-id="${ch.id}">→ 剧本</button>
+        <button class="btn btn--sm btn--amber" data-action="run-all" data-id="${ch.id}">全流程</button>
+        <button class="btn btn--sm btn--rose" data-action="delete-chapter" data-id="${ch.id}">删除</button>
+      </td>
+    </tr>`).join('')
+  }</tbody></table>`;
+  list.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.onclick = async () => {
+      const action = btn.dataset.action;
+      const id = parseInt(btn.dataset.id);
+      if (action === 'novel2script') {
+        await runPipeline('pipeline.novel2script', { chapter_id: id });
+      } else if (action === 'run-all') {
+        await runPipeline('pipeline.run_all', { chapter_id: id });
+      } else if (action === 'delete-chapter') {
+        if (confirm('确定删除此章节？')) {
+          await api(`/chapters/${id}`, { method: 'DELETE' });
+          toast('章节已删除');
+          loadChapters(S.currentProject.id);
+        }
+      }
+    };
+  });
+}
+
+function renderScriptsTab(c) {
+  if (!S.chapters.length) {
+    c.innerHTML = '<div class="empty"><div class="empty__icon">📝</div><div class="empty__title">暂无剧本</div><div class="empty__desc">先在「小说章节」中添加内容，然后运行「小说→剧本」流水线</div></div>';
+    return;
+  }
+  c.innerHTML = '<div class="text-sm text-muted mb-4">剧本由流水线自动生成，存储在 05_Script/ 目录下</div><div id="scriptFiles"></div>';
+  loadProjectFiles('script');
+}
+
+function renderStoryboardTab(c) {
+  c.innerHTML = `
+    <div class="section-header"><div class="section-title">🎞 分镜列表</div></div>
+    <div class="sb-grid" id="sbGrid"></div>
+  `;
+  const grid = document.getElementById('sbGrid');
+  grid.innerHTML = `
+    <div class="sb-card" style="border-style:dashed;display:flex;align-items:center;justify-content:center;min-height:200px">
+      <div style="text-align:center;color:var(--t3)"><div style="font-size:2rem;margin-bottom:8px">＋</div><div style="font-size:.82rem">运行流水线自动生成分镜</div></div>
+    </div>
+  `;
+}
+
+function renderPromptsTab(c) {
+  c.innerHTML = '<div class="section-header"><div class="section-title">🎨 视觉提示词</div></div><div id="promptFiles"></div>';
+  loadProjectFiles('prompt');
+}
+
+function renderProjectConfigTab(c) {
+  c.innerHTML = `
+    <div class="section-header"><div class="section-title">⚙ 项目 LLM 配置</div></div>
+    <div class="text-sm text-muted mb-4">全局默认配置应用于所有未单独配置的环节。各环节可独立选择模型和编写指令，覆盖全局设置。</div>
+
+    <!-- 全局默认 -->
+    <div class="card mb-4" style="max-width:700px">
+      <div class="section-title mb-2">🌐 全局默认配置</div>
+      <div class="flex gap-4">
+        <div class="form-group" style="flex:1"><label>默认服务商</label><select id="cfgProvider">${S.providers.map(p => `<option value="${p.key}">${p.name}</option>`).join('')}</select></div>
+        <div class="form-group" style="flex:1"><label>默认模型</label><input type="text" id="cfgModel" placeholder="如 glm-4-flash"></div>
+      </div>
+      <div class="flex gap-4">
+        <div class="form-group" style="flex:1"><label>Temperature</label><input type="number" id="cfgTemp" value="0.7" min="0" max="2" step="0.1"></div>
+        <div class="form-group" style="flex:1"><label>Max Tokens</label><input type="number" id="cfgMaxTokens" value="4096" min="256" max="32768"></div>
+      </div>
+      <button class="btn btn--primary" id="btnSaveConfig">💾 保存全局配置</button>
+    </div>
+
+    <!-- 各环节独立配置 -->
+    <div class="section-title mb-2">🎛 各环节独立配置</div>
+    <div class="text-sm text-muted mb-4">留空的字段会使用上方全局默认值。</div>
+    <div id="stageConfigs"></div>
+  `;
+
+  // 加载现有配置
+  api(`/projects/${S.currentProject.id}/config`).then(cfg => {
+    if (cfg.provider_key) document.getElementById('cfgProvider').value = cfg.provider_key;
+    if (cfg.model) document.getElementById('cfgModel').value = cfg.model;
+    if (cfg.temperature) document.getElementById('cfgTemp').value = cfg.temperature;
+    if (cfg.max_tokens) document.getElementById('cfgMaxTokens').value = cfg.max_tokens;
+  }).catch(() => {});
+
+  document.getElementById('btnSaveConfig').onclick = async () => {
+    await api(`/projects/${S.currentProject.id}/config`, {
+      method: 'PUT',
+      body: {
+        provider_key: document.getElementById('cfgProvider').value,
+        model: document.getElementById('cfgModel').value,
+        temperature: parseFloat(document.getElementById('cfgTemp').value),
+        max_tokens: parseInt(document.getElementById('cfgMaxTokens').value),
+      }
+    });
+    toast('全局配置已保存');
+  };
+
+  // 加载各阶段配置
+  loadStageConfigs();
+}
+
+async function loadStageConfigs() {
+  const container = document.getElementById('stageConfigs');
+  if (!container) return;
+
+  let stages = {};
+  try { stages = await api('/stages'); } catch(e) {}
+
+  const stageKeys = Object.keys(stages);
+  const configs = {};
+  for (const key of stageKeys) {
+    try {
+      configs[key] = await api(`/projects/${S.currentProject.id}/config/stage/${key}`);
+    } catch(e) {
+      configs[key] = {};
+    }
+  }
+
+  container.innerHTML = stageKeys.map(key => {
+    const sc = configs[key] || {};
+    return `
+      <div class="card mb-2" style="max-width:700px" data-stage="${key}">
+        <div class="flex items-center justify-between" style="cursor:pointer" data-toggle="${key}">
+          <div class="section-title" style="font-size:.88rem">${stages[key]}</div>
+          <span class="text-xs text-muted" id="stageStatus-${key}">${sc.model ? '模型: ' + sc.model : '使用全局默认'}</span>
+        </div>
+        <div id="stagePanel-${key}" style="display:none;margin-top:12px">
+          <div class="flex gap-4">
+            <div class="form-group" style="flex:1"><label>服务商</label>
+              <select id="scProv-${key}"><option value="">（使用全局）</option>${S.providers.map(p => `<option value="${p.key}" ${sc.provider_key===p.key?'selected':''}>${p.name}</option>`).join('')}</select>
+            </div>
+            <div class="form-group" style="flex:1"><label>模型</label>
+              <input type="text" id="scModel-${key}" value="${esc(sc.model||'')}" placeholder="（使用全局默认）">
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="form-group" style="flex:1"><label>Temperature</label>
+              <input type="number" id="scTemp-${key}" value="${sc.temperature ?? ''}" placeholder="（使用全局）" min="0" max="2" step="0.1">
+            </div>
+            <div class="form-group" style="flex:1"><label>Max Tokens</label>
+              <input type="number" id="scTokens-${key}" value="${sc.max_tokens ?? ''}" placeholder="（使用全局）" min="256" max="32768">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>自定义 System Prompt（追加到默认指令之后）</label>
+            <textarea id="scPrompt-${key}" placeholder="为此环节编写专属的 AI 指令..." style="min-height:100px;font-size:.82rem">${esc(sc.system_prompt||'')}</textarea>
+          </div>
+          <button class="btn btn--primary btn--sm" data-save-stage="${key}">💾 保存此环节配置</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 折叠切换
+  container.querySelectorAll('[data-toggle]').forEach(el => {
+    el.onclick = () => {
+      const key = el.dataset.toggle;
+      const panel = document.getElementById(`stagePanel-${key}`);
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    };
+  });
+
+  // 保存单阶段
+  container.querySelectorAll('[data-save-stage]').forEach(btn => {
+    btn.onclick = async () => {
+      const key = btn.dataset.saveStage;
+      const data = {
+        provider_key: document.getElementById(`scProv-${key}`).value,
+        model: document.getElementById(`scModel-${key}`).value,
+        temperature: document.getElementById(`scTemp-${key}`).value ? parseFloat(document.getElementById(`scTemp-${key}`).value) : null,
+        max_tokens: document.getElementById(`scTokens-${key}`).value ? parseInt(document.getElementById(`scTokens-${key}`).value) : null,
+        system_prompt: document.getElementById(`scPrompt-${key}`).value,
+      };
+      await api(`/projects/${S.currentProject.id}/config/stage/${key}`, { method: 'PUT', body: data });
+      const status = document.getElementById(`stageStatus-${key}`);
+      status.textContent = data.model ? `模型: ${data.model}` : '使用全局默认';
+      toast(`${stages[key]} 配置已保存`);
+    };
+  });
+}
+
+/* ═══════════ GLOBAL ASSETS ═══════════ */
+function renderGlobalAssets(c) {
+  const cats = ['Camera', 'Transition', 'Emotion', 'Lighting', 'Style', 'Action'];
+  const catLabels = { Camera: '📷 运镜', Transition: '🔀 转场', Emotion: '🎭 情绪', Lighting: '💡 灯光', Style: '🎨 风格', Action: '🏃 动作' };
+  const catIcons = { Camera: '📹', Transition: '🔀', Emotion: '🎭', Lighting: '💡', Style: '🎨', Action: '🏃' };
+
+  c.innerHTML = `
+    <div class="section-title mb-2">🗂 全局资产库</div>
+    <div class="text-sm text-muted mb-4">预置的运镜/转场/情绪/灯光/风格/动作资产，生成提示词时自动参考。可在目录中添加 YAML 文件扩展。</div>
+    <div class="filters">${cats.map(cat => `<div class="filter ${cat==='Camera'?'active':''}" data-cat="${cat}">${catLabels[cat] || cat}</div>`).join('')}</div>
+    <div id="assetContent"></div>
+  `;
+  c.querySelectorAll('.filter').forEach(el => {
+    el.onclick = () => {
+      c.querySelectorAll('.filter').forEach(f => f.classList.remove('active'));
+      el.classList.add('active');
+      renderGlobalAssetList(el.dataset.cat);
+    };
+  });
+  renderGlobalAssetList('Camera');
+}
+
+function renderGlobalAssetList(category) {
+  const ac = document.getElementById('assetContent');
+  const items = S.globalAssets[category] || [];
+  if (!items.length) {
+    ac.innerHTML = `<div class="empty"><div class="empty__icon">🗂</div><div class="empty__title">${category} 暂无资产</div><div class="empty__desc">在 01_Global_Assets/${category}/ 目录下添加 YAML 文件</div></div>`;
+    return;
+  }
+  ac.innerHTML = `<div class="asset-grid">${items.map(a => `
+    <div class="asset-card fade-up" style="cursor:pointer" data-cat="${a.category}" data-file="${a.filename}">
+      <div class="asset-card__image" style="font-size:1.5rem">${getCategoryIcon(a.category)}</div>
+      <div class="asset-card__body">
+        <div class="asset-card__name">${esc(a.name)}</div>
+        <div class="asset-card__meta"><span>${esc(a.category)}</span><span class="asset-card__prompt-tag">可用</span></div>
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
+function getCategoryIcon(cat) {
+  const icons = { Camera: '📹', Transition: '🔀', Emotion: '🎭', Lighting: '💡', Style: '🎨', Action: '🏃', Template: '📋' };
+  return icons[cat] || '📄';
+}
+
+/* ═══════════ PROVIDERS ═══════════ */
+function renderProviders(c) {
+  c.innerHTML = `
+    <!-- 服务商 API Key -->
+    <div class="section-title mb-2">🔑 服务商 API Key</div>
+    <div class="text-sm text-muted mb-4">配置服务商密钥后，系统自动使用。所有环节共享同一套 Key。</div>
+    <div id="providerList"></div>
+
+    <!-- 全局默认模型 -->
+    <div class="section-title mb-2 mt-4">🌐 全局默认模型</div>
+    <div class="text-sm text-muted mb-4">所有未单独配置的环节使用此设置。</div>
+    <div class="card mb-4" style="max-width:600px">
+      <div class="flex gap-4">
+        <div class="form-group" style="flex:1"><label>默认服务商</label><select id="gProvider">${S.providers.map(p => `<option value="${p.key}">${p.name}</option>`).join('')}</select></div>
+        <div class="form-group" style="flex:1"><label>默认模型</label><input type="text" id="gModel" placeholder="如 glm-4-flash"></div>
+      </div>
+      <div class="flex gap-4">
+        <div class="form-group" style="flex:1"><label>Temperature</label><input type="number" id="gTemp" value="0.7" min="0" max="2" step="0.1"></div>
+        <div class="form-group" style="flex:1"><label>Max Tokens</label><input type="number" id="gTokens" value="4096" min="256" max="32768"></div>
+      </div>
+      <button class="btn btn--primary" id="btnSaveGlobal">💾 保存全局默认</button>
+    </div>
+
+    <!-- 各环节独立配置 -->
+    <div class="section-title mb-2">🎛 各环节独立配置</div>
+    <div class="text-sm text-muted mb-4">点击展开可为每个环节单独设置模型和指令，留空则使用全局默认。</div>
+    <div id="stageConfigList"></div>
+  `;
+
+  // 服务商列表
+  const list = document.getElementById('providerList');
+  list.innerHTML = S.providers.map(p => `
+    <div class="provider-card fade-up">
+      <div class="provider-card__info">
+        <div class="provider-card__name">${esc(p.name)}</div>
+        <div class="provider-card__url">${esc(p.base_url || '—')}</div>
+        <div class="provider-card__key">${p.has_key ? '<span style="color:var(--green)">✓ 已配置 Key</span>' : '<span style="color:var(--t3)">未配置 Key</span>'}</div>
+        <div class="text-xs text-muted mt-2">模型: ${p.models.join(', ') || '—'}</div>
+      </div>
+      <div class="provider-card__actions">
+        <button class="btn btn--sm" data-key="${p.key}" data-action="edit-provider">配置</button>
+        ${p.has_key ? `<button class="btn btn--sm btn--green" data-key="${p.key}" data-action="test-provider">测试</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+  list.querySelectorAll('button[data-action]').forEach(btn => {
+    btn.onclick = () => {
+      if (btn.dataset.action === 'edit-provider') showProviderModal(btn.dataset.key);
+      else if (btn.dataset.action === 'test-provider') testProvider(btn.dataset.key);
+    };
+  });
+
+  // 加载全局配置
+  loadGlobalConfig();
+
+  // 加载各环节配置
+  loadProviderStageConfigs();
+}
+
+async function loadGlobalConfig() {
+  // 从第一个有配置的项目读取（全局配置存在 project_configs 中）
+  if (!S.projects.length) return;
+  try {
+    const cfg = await api(`/projects/${S.projects[0].id}/config`);
+    if (cfg.provider_key) document.getElementById('gProvider').value = cfg.provider_key;
+    if (cfg.model) document.getElementById('gModel').value = cfg.model;
+    if (cfg.temperature) document.getElementById('gTemp').value = cfg.temperature;
+    if (cfg.max_tokens) document.getElementById('gTokens').value = cfg.max_tokens;
+  } catch(e) {}
+
+  document.getElementById('btnSaveGlobal').onclick = async () => {
+    // 保存到所有项目
+    for (const p of S.projects) {
+      await api(`/projects/${p.id}/config`, {
+        method: 'PUT',
+        body: {
+          provider_key: document.getElementById('gProvider').value,
+          model: document.getElementById('gModel').value,
+          temperature: parseFloat(document.getElementById('gTemp').value),
+          max_tokens: parseInt(document.getElementById('gTokens').value),
+        }
+      });
+    }
+    toast('全局默认已保存');
+  };
+}
+
+async function loadProviderStageConfigs() {
+  const container = document.getElementById('stageConfigList');
+  if (!container) return;
+
+  let stages = {};
+  try { stages = await api('/stages'); } catch(e) {}
+  const stageKeys = Object.keys(stages);
+
+  // 使用第一个项目读取配置
+  const pid = S.projects[0]?.id;
+  if (!pid) {
+    container.innerHTML = '<div class="text-muted text-sm">请先创建项目</div>';
+    return;
+  }
+
+  const configs = {};
+  for (const key of stageKeys) {
+    try { configs[key] = await api(`/projects/${pid}/config/stage/${key}`); } catch(e) { configs[key] = {}; }
+  }
+
+  container.innerHTML = stageKeys.map(key => {
+    const sc = configs[key] || {};
+    const hasCustom = sc.model || sc.system_prompt;
+    return `
+      <div class="card mb-2" style="max-width:700px">
+        <div class="flex items-center justify-between" style="cursor:pointer" data-toggle="stage-${key}">
+          <div style="font-weight:500;font-size:.88rem">${stages[key]}</div>
+          <div class="flex items-center gap-2">
+            ${hasCustom ? '<span class="badge badge--green" style="font-size:.6rem">已自定义</span>' : '<span class="text-xs text-muted">使用全局</span>'}
+            <span style="color:var(--t3);font-size:.8rem">▼</span>
+          </div>
+        </div>
+        <div id="stagePanel-${key}" style="display:${hasCustom?'block':'none'};margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <div class="flex gap-4">
+            <div class="form-group" style="flex:1"><label>服务商</label>
+              <select id="sp-${key}"><option value="">（使用全局）</option>${S.providers.map(p => `<option value="${p.key}" ${sc.provider_key===p.key?'selected':''}>${p.name}</option>`).join('')}</select>
+            </div>
+            <div class="form-group" style="flex:1"><label>模型</label>
+              <input type="text" id="sm-${key}" value="${esc(sc.model||'')}" placeholder="（使用全局默认）">
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="form-group" style="flex:1"><label>Temperature</label>
+              <input type="number" id="st-${key}" value="${sc.temperature ?? ''}" placeholder="全局" min="0" max="2" step="0.1">
+            </div>
+            <div class="form-group" style="flex:1"><label>Max Tokens</label>
+              <input type="number" id="sx-${key}" value="${sc.max_tokens ?? ''}" placeholder="全局" min="256" max="32768">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>自定义 System Prompt（追加到默认指令之后）</label>
+            <textarea id="ss-${key}" placeholder="为此环节编写专属 AI 指令..." style="min-height:80px;font-size:.82rem">${esc(sc.system_prompt||'')}</textarea>
+          </div>
+          <button class="btn btn--primary btn--sm" data-save="${key}">💾 保存此环节</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // 折叠
+  container.querySelectorAll('[data-toggle]').forEach(el => {
+    el.onclick = () => {
+      const key = el.dataset.toggle.replace('stage-', '');
+      const panel = document.getElementById(`stagePanel-${key}`);
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    };
+  });
+
+  // 保存
+  container.querySelectorAll('[data-save]').forEach(btn => {
+    btn.onclick = async () => {
+      const key = btn.dataset.save;
+      await api(`/projects/${pid}/config/stage/${key}`, {
+        method: 'PUT',
+        body: {
+          provider_key: document.getElementById(`sp-${key}`).value,
+          model: document.getElementById(`sm-${key}`).value,
+          temperature: document.getElementById(`st-${key}`).value ? parseFloat(document.getElementById(`st-${key}`).value) : null,
+          max_tokens: document.getElementById(`sx-${key}`).value ? parseInt(document.getElementById(`sx-${key}`).value) : null,
+          system_prompt: document.getElementById(`ss-${key}`).value,
+        }
+      });
+      toast(`${stages[key]} 配置已保存`);
+    };
+  });
+}
+
+/* ═══════════ TASKS ═══════════ */
+function renderTasks(c) {
+  c.innerHTML = `
+    <div class="section-header"><div class="section-title">⚡ 任务中心</div><button class="btn btn--sm" id="btnRefreshTasks">刷新</button></div>
+    <div id="taskList"></div>
+  `;
+  c.querySelector('#btnRefreshTasks').onclick = () => loadTasks().then(() => renderTasks(c));
+  const list = document.getElementById('taskList');
+  if (!S.tasks.length) {
+    list.innerHTML = '<div class="empty"><div class="empty__icon">⚡</div><div class="empty__title">暂无任务</div><div class="empty__desc">运行流水线后，任务会在这里显示</div></div>';
+    return;
+  }
+  list.innerHTML = S.tasks.map(t => {
+    const statusColors = { pending: 'gray', running: 'blue', success: 'green', fail: 'rose', cancelled: 'amber' };
+    const statusLabels = { pending: '等待中', running: '运行中', success: '成功', fail: '失败', cancelled: '已取消' };
+    return `
+      <div class="task-item fade-up">
+        <div class="task-item__info">
+          <div class="task-item__name">${esc(t.name || t.stage)}</div>
+          <div class="task-item__stage">${esc(t.stage)} · ${t.created_time || ''}</div>
+          ${t.message ? `<div class="text-xs text-muted mt-2">${esc(t.message)}</div>` : ''}
+        </div>
+        <div class="task-item__progress">
+          <div class="progress"><div class="progress__fill" style="width:${t.progress}%;background:var(--${statusColors[t.status] || 't3'})"></div></div>
+          <div class="text-xs text-muted text-right">${t.progress}%</div>
+        </div>
+        <span class="badge badge--${statusColors[t.status] || 'gray'}">${statusLabels[t.status] || t.status}</span>
+        ${t.status === 'running' ? `<button class="btn btn--sm btn--rose" data-id="${t.id}" data-action="stop">停止</button>` : ''}
+      </div>
+    `;
+  }).join('');
+  list.querySelectorAll('button[data-action="stop"]').forEach(btn => {
+    btn.onclick = async () => {
+      await api(`/tasks/${btn.dataset.id}/stop`, { method: 'POST' });
+      toast('任务已停止');
+      loadTasks().then(() => renderTasks(c));
+    };
+  });
+}
+
+/* ═══════════ PROMPT LIBRARY ═══════════ */
+function renderPromptLibrary(c) {
+  c.innerHTML = `
+    <div class="section-header"><div class="section-title">📚 Prompt 词库</div><button class="btn btn--primary btn--sm" id="btnAddTerm">＋ 添加词条</button></div>
+    <div id="termList"></div>
+  `;
+  c.querySelector('#btnAddTerm').onclick = () => showAddTermModal();
+  loadPromptTerms();
+}
+
+/* ═══════════ NOVEL CREATION MODULE ═══════════ */
+
+const NOVEL_STAGES = [
+  // === 第一阶段：小说创作 ===
+  { key: 'world', icon: '🌍', title: '世界观设定', desc: '构建故事世界的基础框架', group: 'novel' },
+  { key: 'character', icon: '👥', title: '人物设计', desc: '创建立体的角色形象', group: 'novel' },
+  { key: 'outline', icon: '📋', title: '剧情大纲', desc: '规划故事主线与走向', group: 'novel' },
+  { key: 'plotpoints', icon: '🎯', title: '关键节点', desc: '拆解核心剧情转折点', group: 'novel' },
+  { key: 'chapters', icon: '📖', title: '章节创作', desc: '撰写小说正文', group: 'novel' },
+  // === 第二阶段：剧本+分镜 ===
+  { key: 'script', icon: '📝', title: '剧本生成', desc: '小说→结构化剧本', group: 'script' },
+  { key: 'storyboard', icon: '🎞', title: '分镜提示词', desc: '剧本→电影级分镜Prompt', group: 'script' },
+  // === 第三阶段：资产 ===
+  { key: 'assets', icon: '🎨', title: '资产提示词', desc: '从剧本提取角色/场景/道具提示词', group: 'assets' },
+  { key: 'asset-images', icon: '🖼', title: '资产图管理', desc: '生成或导入资产参考图', group: 'assets' },
+  // === 第四阶段：打包 ===
+  { key: 'package', icon: '📦', title: '打包导出', desc: '分镜提示词+最终版资产图→豆包', group: 'package' },
+  { key: 'globals', icon: '⚙', title: '项目全局设定', desc: '音色/色彩/画风/提示词', group: 'settings' },
+];
+
+function renderNovelHome(c) {
+  const groups = [
+    { key: 'novel', label: '第一阶段 · 小说创作', color: 'var(--purple)' },
+    { key: 'script', label: '第二阶段 · 剧本+分镜', color: 'var(--blue)' },
+    { key: 'assets', label: '第三阶段 · 资产管理', color: 'var(--amber)' },
+    { key: 'package', label: '第四阶段 · 打包导出', color: 'var(--green)' },
+  ];
+  c.innerHTML = `
+    <!-- 快速开始引导 -->
+    <div class="card mb-4" style="border-left:3px solid var(--purple)">
+      <div class="section-title mb-2">🚀 快速开始</div>
+      <div class="text-sm" style="line-height:1.8;color:var(--t2)">
+        <div><strong>第一步：</strong>选择下方项目进入创作（或在「项目管理」中新建项目）</div>
+        <div><strong>第二步：</strong>按顺序完成 世界观 → 人物 → 大纲 → 节点 → 章节</div>
+        <div><strong>第三步：</strong>进入「剧本生成」自动生成结构化剧本</div>
+        <div><strong>第四步：</strong>进入「分镜提示词」生成电影级 Prompt</div>
+        <div><strong>第五步：</strong>在「资产管理」中导入资产图，确认最终版</div>
+        <div><strong>第六步：</strong>「打包导出」→ 丢给豆包生成视频</div>
+      </div>
+    </div>
+
+    <div class="text-sm text-muted mb-4">按流程推进，每个阶段独立可控。只有你主动进入下一阶段才会执行。</div>
+    ${groups.map(g => `
+      <div class="mb-4">
+        <div class="section-title" style="color:${g.color};font-size:.88rem;margin-bottom:10px">${g.label}</div>
+        <div class="workflow">
+          ${NOVEL_STAGES.filter(s => s.group === g.key).map((s, i, arr) => `
+            <div class="workflow-step fade-up">
+              <div class="workflow-step__icon">${s.icon}</div>
+              <div class="workflow-step__title">${s.title}</div>
+              <div class="workflow-step__desc">${s.desc}</div>
+              ${i < arr.length - 1 ? '<span class="workflow-step__arrow">→</span>' : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('')}
+    <div class="section-header"><div class="section-title">📁 选择项目进入创作</div></div>
+    <div class="card-grid" id="novelProjects"></div>
+  `;
+  const grid = document.getElementById('novelProjects');
+  if (!S.projects.length) {
+    grid.innerHTML = '<div class="empty"><div class="empty__icon">✍</div><div class="empty__title">暂无项目</div><div class="empty__desc">请先在「项目管理」中创建项目</div></div>';
+    return;
+  }
+  grid.innerHTML = S.projects.map(p => `
+    <div class="card fade-up" data-id="${p.id}" style="cursor:pointer">
+      <div class="flex items-center justify-between mb-2">
+        <div style="font-weight:600;font-size:.92rem">${esc(p.name)}</div>
+        <span class="badge badge--purple">${p.chapter_count || 0} 章</span>
+      </div>
+      <div class="text-sm text-muted mb-2">${esc(p.description || '暂无描述')}</div>
+      <div class="text-xs text-muted">${esc(p.genre)}</div>
+    </div>
+  `).join('');
+  grid.querySelectorAll('.card').forEach(el => {
+    el.onclick = () => openNovelProject(parseInt(el.dataset.id));
+  });
+}
+
+async function openNovelProject(projectId) {
+  const p = S.projects.find(x => x.id === projectId);
+  if (!p) return;
+  S.novelProject = p;
+  S.view = 'novel-project';
+  S.novelStage = 'world';
+  render();
+  await loadNovelData();
+}
+
+function renderNovelProject(c) {
+  const groups = [
+    { key: 'novel', label: '小说创作', color: 'var(--purple)' },
+    { key: 'script', label: '剧本分镜', color: 'var(--blue)' },
+    { key: 'assets', label: '资产管理', color: 'var(--amber)' },
+    { key: 'package', label: '打包导出', color: 'var(--green)' },
+    { key: 'settings', label: '项目设定', color: 'var(--t2)' },
+  ];
+
+  c.innerHTML = `
+    <div style="display:flex;gap:20px;height:calc(100vh - 140px)">
+      <!-- 左侧阶段导航 -->
+      <div style="width:180px;min-width:180px;overflow-y:auto;padding-right:12px;border-right:1px solid var(--border)">
+        <div class="text-sm text-muted mb-2">${esc(S.novelProject?.name||'')}</div>
+        ${groups.map(g => `
+          <div class="mb-4">
+            <div style="font-size:.68rem;font-weight:600;color:${g.color};text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">${g.label}</div>
+            ${NOVEL_STAGES.filter(s => s.group === g.key).map(s => {
+              const status = getNovelStageStatus(s.key);
+              return `
+                <div class="nav-item ${S.novelStage===s.key?'active':''}" data-stage="${s.key}" style="padding:6px 10px;font-size:.8rem;border-radius:6px;margin-bottom:2px">
+                  <span style="width:16px;text-align:center">${s.icon}</span> ${s.title}
+                  <span style="margin-left:auto;font-size:.6rem">${status}</span>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `).join('')}
+      </div>
+      <!-- 右侧内容 -->
+      <div style="flex:1;min-width:0;overflow-y:auto" id="novelContent"></div>
+    </div>
+  `;
+
+  c.querySelectorAll('[data-stage]').forEach(el => {
+    el.onclick = () => { S.novelStage = el.dataset.stage; renderNovelProject(c); loadNovelData(); };
+  });
+
+  const nc = document.getElementById('novelContent');
+  switch (S.novelStage) {
+    case 'world': renderNovelWorld(nc); break;
+    case 'character': renderNovelCharacters(nc); break;
+    case 'outline': renderNovelOutline(nc); break;
+    case 'plotpoints': renderNovelPlotPoints(nc); break;
+    case 'chapters': renderNovelChapters(nc); break;
+    case 'script': renderNovelScript(nc); break;
+    case 'storyboard': renderNovelStoryboard(nc); break;
+    case 'assets': renderNovelAssetPrompts(nc); break;
+    case 'asset-images': renderNovelAssetImages(nc); break;
+    case 'package': renderNovelPackage(nc); break;
+    case 'globals': renderNovelGlobals(nc); break;
+  }
+}
+
+/* ──── 世界观 ──── */
+function renderNovelWorld(c) {
+  const w = S.novelWorld;
+  c.innerHTML = `
+    <div class="flex gap-4" style="flex-wrap:wrap">
+      <div style="flex:1;min-width:400px">
+        <div class="card">
+          <div class="form-group"><label>世界名称</label><input type="text" id="wName" value="${esc(w?.name||'')}"></div>
+          <div class="form-group"><label>世界类型</label><input type="text" id="wType" value="${esc(w?.world_type||'')}" placeholder="如：玄幻、都市、末世"></div>
+          <div class="form-group"><label>时代背景</label><input type="text" id="wEra" value="${esc(w?.era||'')}" placeholder="如：近未来、古代、架空"></div>
+          <div class="form-group"><label>地理环境</label><textarea id="wGeo" placeholder="描述世界的地理特征">${esc(w?.geography||'')}</textarea></div>
+          <div class="form-group"><label>力量体系</label><textarea id="wPower" placeholder="如：修仙、魔法、科技">${esc(w?.power_system||'')}</textarea></div>
+          <div class="form-group"><label>社会结构</label><textarea id="wSocial" placeholder="政治、经济、阶级等">${esc(w?.social_structure||'')}</textarea></div>
+          <div class="form-group"><label>历史背景</label><textarea id="wHistory" placeholder="重要历史事件">${esc(w?.history||'')}</textarea></div>
+          <div class="form-group"><label>核心规则</label><textarea id="wRules" placeholder="这个世界独有的规则">${esc(w?.rules||'')}</textarea></div>
+          <div class="form-group"><label>文化风俗</label><textarea id="wCulture">${esc(w?.culture||'')}</textarea></div>
+          <div class="form-group"><label>补充说明</label><textarea id="wNotes">${esc(w?.notes||'')}</textarea></div>
+          <div class="flex gap-2">
+            <button class="btn btn--primary" id="btnSaveWorld">💾 保存世界观</button>
+            <button class="btn btn--green" id="btnAIWorld">🤖 AI 扩展</button>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:400px">
+        <div class="card">
+          <div class="section-title mb-2">🤖 AI 生成的世界观</div>
+          <div id="wAIContext" style="white-space:pre-wrap;font-size:.85rem;line-height:1.7;color:var(--t2);min-height:200px">${esc(w?.ai_context || '点击「AI 扩展」让 AI 根据你的输入生成完整世界观...')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btnSaveWorld').onclick = async () => {
+    const data = {};
+    ['wName','wType','wEra','wGeo','wPower','wSocial','wHistory','wRules','wCulture','wNotes'].forEach(id => {
+      const el = document.getElementById(id);
+      const key = {wName:'name',wType:'world_type',wEra:'era',wGeo:'geography',wPower:'power_system',wSocial:'social_structure',wHistory:'history',wRules:'rules',wCulture:'culture',wNotes:'notes'}[id];
+      data[key] = el.value;
+    });
+    const r = await api(`/novel/${S.novelProject.id}/world`, { method: 'POST', body: data });
+    S.novelWorld = r;
+    // 保存版本
+    await saveAsVersion('world', S.novelProject.name, JSON.stringify(r, null, 2), S.novelProject.id, '手动保存');
+    toast('世界观已保存 (新版本)');
+    refreshWorldVersion();
+  };
+
+  // 版本选择器
+  const verContainer = document.createElement('div');
+  verContainer.style.marginTop = '12px';
+  c.querySelector('.card').appendChild(verContainer);
+  renderVersionSelector(verContainer, 'world', S.novelProject.name, S.novelProject.id, () => {});
+
+  function refreshWorldVersion() {
+    renderVersionSelector(verContainer, 'world', S.novelProject.name, S.novelProject.id, () => {});
+  }
+
+  document.getElementById('btnAIWorld').onclick = async () => {
+    const parts = ['wType','wEra','wGeo','wPower','wSocial','wHistory','wRules','wCulture'].map(id => document.getElementById(id).value).filter(Boolean);
+    if (!parts.length) { toast('请先填写一些世界观信息'); return; }
+    toast('AI 正在扩展世界观...');
+    const r = await api(`/novel/${S.novelProject.id}/world/expand`, { method: 'POST', body: { input: parts.join('，') } });
+    document.getElementById('wAIContext').textContent = r.result;
+    // 自动保存到 ai_context
+    await api(`/novel/${S.novelProject.id}/world`, { method: 'POST', body: { ai_context: r.result } });
+  };
+}
+
+/* ──── 角色 ──── */
+function renderNovelCharacters(c) {
+  const chars = S.novelCharacters;
+  c.innerHTML = `
+    <div class="section-header"><div class="section-title">👥 角色列表</div>
+      <div class="flex gap-2">
+        <button class="btn btn--green btn--sm" id="btnAIChar">🤖 AI 创建</button>
+        <button class="btn btn--primary btn--sm" id="btnAddChar">＋ 新建角色</button>
+      </div>
+    </div>
+    <div class="card-grid" id="charGrid"></div>
+  `;
+
+  const grid = document.getElementById('charGrid');
+  if (!chars.length) {
+    grid.innerHTML = '<div class="empty"><div class="empty__icon">👥</div><div class="empty__title">暂无角色</div><div class="empty__desc">点击上方按钮创建角色</div></div>';
+  } else {
+    grid.innerHTML = chars.map(ch => `
+      <div class="card fade-up" data-id="${ch.id}" style="cursor:pointer">
+        <div class="flex items-center justify-between mb-2">
+          <div style="font-weight:600">${esc(ch.name)}</div>
+          <span class="badge badge--${ch.role==='主角'?'purple':ch.role==='反派'?'rose':'blue'}">${esc(ch.role)}</span>
+        </div>
+        <div class="text-sm text-muted mb-2">${esc(ch.personality || '暂无性格描述')}</div>
+        <div class="text-xs text-muted">${esc(ch.appearance || '')}</div>
+      </div>
+    `).join('');
+    grid.querySelectorAll('.card').forEach(el => {
+      el.onclick = () => showEditCharModal(parseInt(el.dataset.id));
+    });
+  }
+
+  document.getElementById('btnAddChar').onclick = () => showEditCharModal(null);
+  document.getElementById('btnAIChar').onclick = () => showAICharModal();
+}
+
+function showEditCharModal(charId) {
+  const ch = charId ? S.novelCharacters.find(c => c.id === charId) : null;
+  showModal(ch ? '编辑角色' : '新建角色', `
+    <div class="form-group"><label>角色名</label><input type="text" id="cName" value="${esc(ch?.name||'')}"></div>
+    <div class="form-group"><label>角色定位</label><select id="cRole"><option ${ch?.role==='主角'?'selected':''}>主角</option><option ${ch?.role==='配角'?'selected':''}>配角</option><option ${ch?.role==='反派'?'selected':''}>反派</option><option ${ch?.role==='路人'?'selected':''}>路人</option></select></div>
+    <div class="flex gap-2">
+      <div class="form-group" style="flex:1"><label>性别</label><input type="text" id="cGender" value="${esc(ch?.gender||'')}"></div>
+      <div class="form-group" style="flex:1"><label>年龄</label><input type="text" id="cAge" value="${esc(ch?.age||'')}"></div>
+    </div>
+    <div class="form-group"><label>外貌描述</label><textarea id="cAppearance">${esc(ch?.appearance||'')}</textarea></div>
+    <div class="form-group"><label>性格特点</label><textarea id="cPersonality">${esc(ch?.personality||'')}</textarea></div>
+    <div class="form-group"><label>人物背景</label><textarea id="cBackground">${esc(ch?.background||'')}</textarea></div>
+    <div class="form-group"><label>能力/技能</label><textarea id="cAbility">${esc(ch?.ability||'')}</textarea></div>
+    <div class="form-group"><label>动机/目标</label><textarea id="cMotivation">${esc(ch?.motivation||'')}</textarea></div>
+    <div class="form-group"><label>人物关系</label><textarea id="cRelationships">${esc(ch?.relationships||'')}</textarea></div>
+    <div class="form-group"><label>人物弧光</label><textarea id="cArc">${esc(ch?.arc||'')}</textarea></div>
+    <div class="form-group"><label>经典台词</label><textarea id="cQuotes">${esc(ch?.key_quotes||'')}</textarea></div>
+  `, async () => {
+    const data = {
+      name: document.getElementById('cName').value,
+      role: document.getElementById('cRole').value,
+      gender: document.getElementById('cGender').value,
+      age: document.getElementById('cAge').value,
+      appearance: document.getElementById('cAppearance').value,
+      personality: document.getElementById('cPersonality').value,
+      background: document.getElementById('cBackground').value,
+      ability: document.getElementById('cAbility').value,
+      motivation: document.getElementById('cMotivation').value,
+      relationships: document.getElementById('cRelationships').value,
+      arc: document.getElementById('cArc').value,
+      key_quotes: document.getElementById('cQuotes').value,
+    };
+    if (!data.name) { toast('请输入角色名'); return; }
+    if (charId) {
+      const r = await api(`/novel/characters/${charId}`, { method: 'PUT', body: data });
+      await saveAsVersion('character', r.name, JSON.stringify(r, null, 2), S.novelProject.id, '编辑保存');
+    } else {
+      const r = await api(`/novel/${S.novelProject.id}/characters`, { method: 'POST', body: data });
+      await saveAsVersion('character', r.name, JSON.stringify(r, null, 2), S.novelProject.id, '新建');
+    }
+    toast('角色已保存 (新版本)');
+    loadNovelCharacters();
+  });
+}
+
+function showAICharModal() {
+  showModal('🤖 AI 创建角色', `
+    <div class="form-group"><label>角色描述（越详细越好）</label><textarea id="aiCharInput" placeholder="例：黑发红瞳青年，终焉魔神，127轮轮回记忆，情感封印，外表冷漠内心温柔" style="min-height:120px"></textarea></div>
+  `, async () => {
+    const input = document.getElementById('aiCharInput').value;
+    if (!input) { toast('请输入角色描述'); return; }
+    toast('AI 正在生成角色设定...');
+    const r = await api(`/novel/${S.novelProject.id}/characters/expand`, { method: 'POST', body: { input } });
+    // 弹出编辑窗口，AI 结果填入
+    const modal = document.getElementById('modal');
+    modal.classList.remove('show');
+    showEditCharModal(null);
+    setTimeout(() => {
+      const el = document.getElementById('cBackground');
+      if (el) el.value = r.result;
+    }, 100);
+  });
+}
+
+/* ──── 大纲 ──── */
+function renderNovelOutline(c) {
+  const o = S.novelOutline;
+  c.innerHTML = `
+    <div class="flex gap-4" style="flex-wrap:wrap">
+      <div style="flex:1;min-width:400px">
+        <div class="card">
+          <div class="form-group"><label>故事标题</label><input type="text" id="oTitle" value="${esc(o?.title||'')}"></div>
+          <div class="form-group"><label>类型标签</label><input type="text" id="oGenre" value="${esc(o?.genre||'')}" placeholder="如：玄幻、言情、悬疑"></div>
+          <div class="form-group"><label>核心主题</label><textarea id="oTheme" placeholder="故事想表达什么">${esc(o?.theme||'')}</textarea></div>
+          <div class="form-group"><label>一句话概括 (Logline)</label><textarea id="oLogline" placeholder="一句话说清这个故事">${esc(o?.logline||'')}</textarea></div>
+          <div class="form-group"><label>故事梗概</label><textarea id="oSynopsis" placeholder="300-500字的故事概要" style="min-height:120px">${esc(o?.synopsis||'')}</textarea></div>
+          <div class="form-group"><label>核心矛盾</label><textarea id="oConflict" placeholder="故事的核心冲突是什么">${esc(o?.conflict||'')}</textarea></div>
+          <div class="form-group"><label>结局走向</label><textarea id="oEnding" placeholder="故事如何收尾">${esc(o?.ending||'')}</textarea></div>
+          <div class="flex gap-2">
+            <button class="btn btn--primary" id="btnSaveOutline">💾 保存大纲</button>
+            <button class="btn btn--green" id="btnAIOutline">🤖 AI 生成</button>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:400px">
+        <div class="card">
+          <div class="section-title mb-2">🤖 AI 生成的大纲</div>
+          <div id="oAIContext" style="white-space:pre-wrap;font-size:.85rem;line-height:1.7;color:var(--t2);min-height:200px">${esc(o?.ai_context || '点击「AI 生成」让 AI 根据世界观和角色创作大纲...')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btnSaveOutline').onclick = async () => {
+    const data = {};
+    ['oTitle','oGenre','oTheme','oLogline','oSynopsis','oConflict','oEnding'].forEach(id => {
+      const el = document.getElementById(id);
+      const key = {oTitle:'title',oGenre:'genre',oTheme:'theme',oLogline:'logline',oSynopsis:'synopsis',oConflict:'conflict',oEnding:'ending'}[id];
+      data[key] = el.value;
+    });
+    const r = await api(`/novel/${S.novelProject.id}/outline`, { method: 'POST', body: data });
+    S.novelOutline = r;
+    await saveAsVersion('outline', S.novelProject.name, JSON.stringify(r, null, 2), S.novelProject.id, '手动保存');
+    toast('大纲已保存 (新版本)');
+    refreshOutlineVersion();
+  };
+
+  // 版本选择器
+  const verContainer = document.createElement('div');
+  verContainer.style.marginTop = '12px';
+  c.querySelector('.card').appendChild(verContainer);
+  renderVersionSelector(verContainer, 'outline', S.novelProject.name, S.novelProject.id, () => {});
+  function refreshOutlineVersion() {
+    renderVersionSelector(verContainer, 'outline', S.novelProject.name, S.novelProject.id, () => {});
+  }
+
+  document.getElementById('btnAIOutline').onclick = async () => {
+    toast('AI 正在生成大纲...');
+    const r = await api(`/novel/${S.novelProject.id}/outline/generate`, { method: 'POST', body: { hint: document.getElementById('oTheme').value } });
+    document.getElementById('oAIContext').textContent = r.result;
+    await api(`/novel/${S.novelProject.id}/outline`, { method: 'POST', body: { ai_context: r.result } });
+  };
+}
+
+/* ──── 关键节点 ──── */
+function renderNovelPlotPoints(c) {
+  const pts = S.novelPlotPoints;
+  c.innerHTML = `
+    <div class="section-header"><div class="section-title">🎯 关键节点</div>
+      <div class="flex gap-2">
+        <button class="btn btn--green btn--sm" id="btnAIPoints">🤖 AI 生成</button>
+        <button class="btn btn--primary btn--sm" id="btnAddPoint">＋ 添加节点</button>
+      </div>
+    </div>
+    <div id="pointsList"></div>
+  `;
+
+  const list = document.getElementById('pointsList');
+  if (!pts.length) {
+    list.innerHTML = '<div class="empty"><div class="empty__icon">🎯</div><div class="empty__title">暂无关键节点</div><div class="empty__desc">点击「AI 生成」或手动添加</div></div>';
+  } else {
+    list.innerHTML = `<table class="table"><thead><tr><th>#</th><th>类型</th><th>标题</th><th>描述</th><th>情绪</th><th>操作</th></tr></thead><tbody>${
+      pts.map(p => `<tr>
+        <td>${p.sequence}</td>
+        <td><span class="badge badge--amber">${esc(p.point_type)}</span></td>
+        <td style="font-weight:500">${esc(p.title)}</td>
+        <td class="text-muted">${esc((p.description||'').substring(0,50))}</td>
+        <td class="text-muted">${esc(p.emotional_beat||'')}</td>
+        <td><button class="btn btn--sm btn--rose" data-id="${p.id}" data-action="del">删除</button></td>
+      </tr>`).join('')
+    }</tbody></table>`;
+    list.querySelectorAll('button[data-action="del"]').forEach(btn => {
+      btn.onclick = async () => {
+        await api(`/novel/plot-points/${btn.dataset.id}`, { method: 'DELETE' });
+        toast('已删除');
+        loadNovelPlotPoints();
+      };
+    });
+  }
+
+  document.getElementById('btnAddPoint').onclick = () => showAddPointModal();
+  document.getElementById('btnAIPoints').onclick = async () => {
+    toast('AI 正在生成关键节点...');
+    await api(`/novel/${S.novelProject.id}/plot-points/generate`, { method: 'POST' });
+    toast('关键节点已生成');
+    loadNovelPlotPoints();
+  };
+}
+
+function showAddPointModal() {
+  const maxSeq = S.novelPlotPoints.length ? Math.max(...S.novelPlotPoints.map(p => p.sequence)) + 1 : 1;
+  showModal('添加关键节点', `
+    <div class="form-group"><label>标题</label><input type="text" id="ppTitle"></div>
+    <div class="form-group"><label>类型</label><select id="ppType"><option>开场</option><option>激励事件</option><option>转折</option><option>高潮</option><option>结局</option><option>剧情点</option></select></div>
+    <div class="form-group"><label>排序</label><input type="number" id="ppSeq" value="${maxSeq}"></div>
+    <div class="form-group"><label>描述</label><textarea id="ppDesc"></textarea></div>
+    <div class="form-group"><label>涉及角色</label><input type="text" id="ppChars"></div>
+    <div class="form-group"><label>情绪节拍</label><input type="text" id="ppEmo"></div>
+  `, async () => {
+    await api(`/novel/${S.novelProject.id}/plot-points`, { method: 'POST', body: {
+      title: document.getElementById('ppTitle').value,
+      point_type: document.getElementById('ppType').value,
+      sequence: parseInt(document.getElementById('ppSeq').value),
+      description: document.getElementById('ppDesc').value,
+      characters_involved: document.getElementById('ppChars').value,
+      emotional_beat: document.getElementById('ppEmo').value,
+    }});
+    toast('节点已添加');
+    loadNovelPlotPoints();
+  });
+}
+
+/* ──── 章节创作 ──── */
+function renderNovelChapters(c) {
+  const chs = S.novelChapters;
+  c.innerHTML = `
+    <div class="section-header"><div class="section-title">📖 章节列表</div>
+      <div class="flex gap-2">
+        <button class="btn btn--green btn--sm" id="btnAIChapter">🤖 AI 生成概要</button>
+        <button class="btn btn--primary btn--sm" id="btnAddChapter">＋ 新建章节</button>
+      </div>
+    </div>
+    <div id="novelChapterList"></div>
+  `;
+
+  const list = document.getElementById('novelChapterList');
+  if (!chs.length) {
+    list.innerHTML = '<div class="empty"><div class="empty__icon">📖</div><div class="empty__title">暂无章节</div><div class="empty__desc">点击「新建章节」开始创作</div></div>';
+  } else {
+    list.innerHTML = `<table class="table"><thead><tr><th>#</th><th>标题</th><th>概要</th><th>字数</th><th>状态</th><th>操作</th></tr></thead><tbody>${
+      chs.map(ch => `<tr style="cursor:pointer" data-id="${ch.id}">
+        <td>${ch.chapter_number}</td>
+        <td style="font-weight:500">${esc(ch.title)}</td>
+        <td class="text-muted">${esc((ch.summary||'').substring(0,40))}</td>
+        <td>${ch.word_count || 0}</td>
+        <td><span class="badge badge--${ch.status==='done'?'green':'gray'}">${ch.status==='done'?'已完成':'草稿'}</span></td>
+        <td>
+          <button class="btn btn--sm" data-action="edit" data-id="${ch.id}">编辑</button>
+          <button class="btn btn--sm btn--rose" data-action="del" data-id="${ch.id}">删除</button>
+        </td>
+      </tr>`).join('')
+    }</tbody></table>`;
+    list.querySelectorAll('button[data-action="edit"]').forEach(btn => {
+      btn.onclick = (e) => { e.stopPropagation(); openNovelChapterEditor(parseInt(btn.dataset.id)); };
+    });
+    list.querySelectorAll('button[data-action="del"]').forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        await api(`/novel/novel-chapters/${btn.dataset.id}`, { method: 'DELETE' });
+        toast('已删除');
+        loadNovelChapters();
+      };
+    });
+  }
+
+  document.getElementById('btnAddChapter').onclick = () => showAddNovelChapterModal();
+  document.getElementById('btnAIChapter').onclick = async () => {
+    const num = S.novelChapters.length + 1;
+    toast('AI 正在生成章节概要...');
+    const r = await api(`/novel/${S.novelProject.id}/novel-chapters/generate-summary`, { method: 'POST', body: { chapter_number: num } });
+    showAddNovelChapterModal(r.result);
+  };
+}
+
+function showAddNovelChapterModal(aiSummary) {
+  const num = S.novelChapters.length + 1;
+  showModal('新建章节', `
+    <div class="form-group"><label>章节号</label><input type="number" id="ncNum" value="${num}"></div>
+    <div class="form-group"><label>标题</label><input type="text" id="ncTitle" value="第${num}章"></div>
+    <div class="form-group"><label>章节概要</label><textarea id="ncSummary" style="min-height:120px">${esc(aiSummary||'')}</textarea></div>
+  `, async () => {
+    await api(`/novel/${S.novelProject.id}/novel-chapters`, { method: 'POST', body: {
+      chapter_number: parseInt(document.getElementById('ncNum').value),
+      title: document.getElementById('ncTitle').value,
+      summary: document.getElementById('ncSummary').value,
+    }});
+    toast('章节已创建');
+    loadNovelChapters();
+  });
+}
+
+/* ──── 章节编辑器 ──── */
+async function openNovelChapterEditor(chapterId) {
+  const ch = await api(`/novel/novel-chapters/${chapterId}`);
+  const scenes = await api(`/novel/novel-chapters/${chapterId}/scenes`);
+  S.novelCurrentChapter = ch;
+  S.novelScenes = scenes;
+
+  const nc = document.getElementById('novelContent');
+  nc.innerHTML = `
+    <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center gap-3">
+        <button class="btn btn--sm" id="btnBackChapters">← 返回</button>
+        <div style="font-weight:600;font-size:1rem">${esc(ch.title)}</div>
+        <span class="text-muted text-sm">${ch.word_count || 0} 字</span>
+      </div>
+      <div class="flex gap-2">
+        <button class="btn btn--green btn--sm" id="btnAIScene">🤖 AI 生成场景</button>
+        <button class="btn btn--sm" id="btnAddScene">＋ 添加场景</button>
+        <button class="btn btn--primary btn--sm" id="btnSaveChContent">💾 保存</button>
+      </div>
+    </div>
+    <div class="flex gap-4" style="height:calc(100vh - 220px)">
+      <div style="width:260px;overflow-y:auto" id="sceneList"></div>
+      <div style="flex:1;display:flex;flex-direction:column">
+        <div class="form-group" style="flex:1;display:flex;flex-direction:column">
+          <label>章节正文</label>
+          <textarea id="chEditor" style="flex:1;font-size:.88rem;line-height:1.8">${esc(ch.full_content || ch.content || '')}</textarea>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btnBackChapters').onclick = () => { S.novelCurrentChapter = null; renderNovelProject(nc); loadNovelChapters(); };
+
+  document.getElementById('btnSaveChContent').onclick = async () => {
+    const content = document.getElementById('chEditor').value;
+    await api(`/novel/novel-chapters/${chapterId}`, { method: 'PUT', body: { content } });
+    await saveAsVersion('chapter', ch.title, content, S.novelProject.id, '编辑保存');
+    toast('已保存 (新版本)');
+  };
+
+  document.getElementById('btnAddScene').onclick = () => showAddSceneModal(chapterId);
+
+  document.getElementById('btnAIScene').onclick = async () => {
+    toast('AI 正在生成场景正文...');
+    const content = document.getElementById('chEditor').value;
+    const r = await api(`/novel/scenes/${chapterId}/generate-content`, { method: 'POST' });
+    document.getElementById('chEditor').value = content + '\n\n' + r.result;
+  };
+
+  // 渲染场景列表
+  renderSceneList(chapterId);
+}
+
+function renderSceneList(chapterId) {
+  const sl = document.getElementById('sceneList');
+  if (!sl) return;
+  if (!S.novelScenes.length) {
+    sl.innerHTML = '<div class="text-muted text-sm" style="padding:20px">暂无场景</div>';
+    return;
+  }
+  sl.innerHTML = S.novelScenes.map(s => `
+    <div class="card" style="padding:10px;margin-bottom:8px;cursor:pointer" data-id="${s.id}">
+      <div class="flex items-center justify-between">
+        <div style="font-weight:500;font-size:.82rem">${esc(s.title)}</div>
+        <button class="btn btn--sm btn--rose" data-sid="${s.id}" data-action="delscene">✕</button>
+      </div>
+      <div class="text-xs text-muted mt-2">${esc(s.location)} · ${esc(s.time_desc)}</div>
+      <div class="text-xs text-muted">${esc(s.mood)}</div>
+    </div>
+  `).join('');
+  sl.querySelectorAll('button[data-action="delscene"]').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      await api(`/novel/scenes/${btn.dataset.sid}`, { method: 'DELETE' });
+      S.novelScenes = S.novelScenes.filter(s => s.id !== parseInt(btn.dataset.sid));
+      renderSceneList(chapterId);
+      toast('场景已删除');
+    };
+  });
+}
+
+function showAddSceneModal(chapterId) {
+  const maxNum = S.novelScenes.length ? Math.max(...S.novelScenes.map(s => s.scene_number)) + 1 : 1;
+  showModal('添加场景', `
+    <div class="form-group"><label>场景标题</label><input type="text" id="sTitle" value="场景${maxNum}"></div>
+    <div class="form-group"><label>地点</label><input type="text" id="sLocation"></div>
+    <div class="form-group"><label>时间</label><input type="text" id="sTime" placeholder="如：黄昏、深夜"></div>
+    <div class="form-group"><label>出场角色</label><input type="text" id="sChars"></div>
+    <div class="form-group"><label>氛围</label><input type="text" id="sMood" placeholder="如：压抑、温馨"></div>
+    <div class="form-group"><label>场景概要</label><textarea id="sSummary"></textarea></div>
+  `, async () => {
+    const r = await api(`/novel/novel-chapters/${chapterId}/scenes`, { method: 'POST', body: {
+      title: document.getElementById('sTitle').value,
+      location: document.getElementById('sLocation').value,
+      time_desc: document.getElementById('sTime').value,
+      characters: document.getElementById('sChars').value,
+      mood: document.getElementById('sMood').value,
+      summary: document.getElementById('sSummary').value,
+    }});
+    S.novelScenes.push(r);
+    renderSceneList(chapterId);
+    toast('场景已添加');
+  });
+}
+
+/* ──── AI 对话 ──── */
+function renderNovelChat(c) {
+  c.innerHTML = `
+    <div style="max-width:800px">
+      <div class="card" style="height:calc(100vh - 240px);display:flex;flex-direction:column">
+        <div id="chatMessages" style="flex:1;overflow-y:auto;padding:16px"></div>
+        <div style="display:flex;gap:8px;padding:12px 0 0;border-top:1px solid var(--border)">
+          <input type="text" id="chatInput" placeholder="输入问题，如：帮我分析主角的内心矛盾..." style="flex:1;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);font-size:.85rem;outline:none">
+          <button class="btn btn--primary" id="btnChatSend">发送</button>
+        </div>
+      </div>
+      <div class="mt-4">
+        <div class="text-sm text-muted mb-2">💡 快捷提问：</div>
+        <div class="flex gap-2" style="flex-wrap:wrap">
+          <button class="btn btn--sm" data-q="帮我分析主角的内心矛盾">角色分析</button>
+          <button class="btn btn--sm" data-q="这个剧情走向合理吗？有什么建议？">剧情建议</button>
+          <button class="btn btn--sm" data-q="帮我检查世界观设定是否有矛盾">世界观检查</button>
+          <button class="btn btn--sm" data-q="如何提升下一章的戏剧张力？">写作建议</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const messages = document.getElementById('chatMessages');
+  messages.innerHTML = '<div class="text-muted text-sm" style="text-align:center;padding:40px">开始与 AI 讨论你的小说创作...</div>';
+
+  async function sendMessage(text) {
+    if (!text.trim()) return;
+    messages.innerHTML += `<div style="margin-bottom:12px;text-align:right"><div style="display:inline-block;background:var(--purple-dim);padding:8px 14px;border-radius:12px 12px 4px 12px;font-size:.85rem;max-width:80%">${esc(text)}</div></div>`;
+    messages.innerHTML += `<div id="chatLoading" style="color:var(--t3);font-size:.82rem;padding:8px 0">AI 思考中...</div>`;
+    messages.scrollTop = messages.scrollHeight;
+
+    const r = await api(`/novel/${S.novelProject.id}/chat`, { method: 'POST', body: { prompt: text } });
+    document.getElementById('chatLoading')?.remove();
+    messages.innerHTML += `<div style="margin-bottom:12px"><div style="display:inline-block;background:var(--bg4);padding:8px 14px;border-radius:12px 12px 12px 4px;font-size:.85rem;max-width:80%;white-space:pre-wrap">${esc(r.result)}</div></div>`;
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  document.getElementById('btnChatSend').onclick = () => {
+    const input = document.getElementById('chatInput');
+    sendMessage(input.value);
+    input.value = '';
+  };
+  document.getElementById('chatInput').onkeydown = (e) => {
+    if (e.key === 'Enter') { sendMessage(e.target.value); e.target.value = ''; }
+  };
+  document.querySelectorAll('[data-q]').forEach(btn => {
+    btn.onclick = () => sendMessage(btn.dataset.q);
+  });
+}
+
+/* ──── Novel Data Loaders ──── */
+async function loadNovelData() {
+  if (!S.novelProject) return;
+  const pid = S.novelProject.id;
+  try {
+    const [world, chars, outline, points, chapters] = await Promise.all([
+      api(`/novel/${pid}/world`).catch(() => null),
+      api(`/novel/${pid}/characters`).catch(() => []),
+      api(`/novel/${pid}/outline`).catch(() => null),
+      api(`/novel/${pid}/plot-points`).catch(() => []),
+      api(`/novel/${pid}/novel-chapters`).catch(() => []),
+    ]);
+    S.novelWorld = world;
+    S.novelCharacters = chars;
+    S.novelOutline = outline;
+    S.novelPlotPoints = points;
+    S.novelChapters = chapters;
+  } catch (e) { /* ignore */ }
+  renderNovelProject(document.getElementById('novelContent')?.parentElement?.querySelector('#novelContent') || document.getElementById('content'));
+}
+
+async function loadNovelCharacters() {
+  if (!S.novelProject) return;
+  S.novelCharacters = await api(`/novel/${S.novelProject.id}/characters`).catch(() => []);
+  const nc = document.getElementById('novelContent');
+  if (nc && S.novelStage === 'character') renderNovelCharacters(nc);
+}
+
+async function loadNovelPlotPoints() {
+  if (!S.novelProject) return;
+  S.novelPlotPoints = await api(`/novel/${S.novelProject.id}/plot-points`).catch(() => []);
+  const nc = document.getElementById('novelContent');
+  if (nc && S.novelStage === 'plotpoints') renderNovelPlotPoints(nc);
+}
+
+async function loadNovelChapters() {
+  if (!S.novelProject) return;
+  S.novelChapters = await api(`/novel/${S.novelProject.id}/novel-chapters`).catch(() => []);
+  const nc = document.getElementById('novelContent');
+  if (nc && S.novelStage === 'chapters') renderNovelChapters(nc);
+}
+
+/* ═══════════ VERSION SELECTOR COMPONENT ═══════════ */
+
+/**
+ * 创建一个版本选择下拉框
+ * @param {string} assetType - 资产类型 (world/character/chapter/scene/global_asset)
+ * @param {string} assetKey - 资产标识
+ * @param {number|null} projectId - 项目ID（null=全局）
+ * @param {function} onConfirm - 确认最终版回调
+ */
+async function renderVersionSelector(container, assetType, assetKey, projectId, onConfirm) {
+  let versions = [];
+  try {
+    const pid = projectId ? `project_id=${projectId}&` : '';
+    versions = await api(`/asset-versions/list?${pid}asset_type=${assetType}&asset_key=${encodeURIComponent(assetKey)}`);
+  } catch(e) {}
+
+  const finalV = versions.find(v => v.is_final);
+  const finalTag = finalV ? finalV.version_tag : '无';
+
+  container.innerHTML = `
+    <div class="flex items-center gap-2" style="font-size:.78rem">
+      <span class="text-muted">版本:</span>
+      <select id="verSel-${assetType}-${assetKey.replace(/[^a-zA-Z0-9]/g,'_')}" style="padding:3px 8px;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:.75rem;color:var(--t1)">
+        ${versions.length ? versions.map(v => `<option value="${v.id}" ${v.is_final?'selected':''}>${v.version_tag} ${v.is_final?'✓':''} ${v.timestamp||''}</option>`).join('') : '<option>无版本</option>'}
+      </select>
+      <button class="btn btn--sm btn--green" style="padding:2px 8px;font-size:.7rem" id="btnConfirmVer-${assetType}-${assetKey.replace(/[^a-zA-Z0-9]/g,'_')}">确认最终版</button>
+      <span class="badge badge--${finalV?'green':'gray'}" style="font-size:.6rem">最终: ${finalTag}</span>
+    </div>
+  `;
+
+  const selId = `verSel-${assetType}-${assetKey.replace(/[^a-zA-Z0-9]/g,'_')}`;
+  const btnId = `btnConfirmVer-${assetType}-${assetKey.replace(/[^a-zA-Z0-9]/g,'_')}`;
+
+  const btnEl = document.getElementById(btnId);
+  if (btnEl) btnEl.onclick = async () => {
+    const sel = document.getElementById(selId);
+    const verId = sel?.value;
+    if (!verId || verId === '无版本') { toast('无可确认的版本'); return; }
+    await api(`/asset-versions/confirm/${verId}`, { method: 'POST' });
+    toast('已确认为最终版');
+    if (onConfirm) onConfirm();
+    // 刷新选择器
+    renderVersionSelector(container, assetType, assetKey, projectId, onConfirm);
+  };
+}
+
+/**
+ * 保存当前内容为新版本
+ */
+async function saveAsVersion(assetType, assetKey, content, projectId, notes) {
+  return await api('/asset-versions/save', {
+    method: 'POST',
+    body: {
+      project_id: projectId,
+      asset_type: assetType,
+      asset_key: assetKey,
+      content: typeof content === 'string' ? content : JSON.stringify(content, null, 2),
+      notes: notes || '',
+    }
+  });
+}
+
+/* ═══════════ ASSET PACKAGING MODULE ═══════════ */
+
+function renderAssetPackages(c) {
+  c.innerHTML = `
+    <div class="section-header">
+      <div class="section-title">📦 素材打包</div>
+      <select id="pkgProject" style="padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);font-size:.82rem">
+        <option value="">选择项目...</option>
+        ${S.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="text-sm text-muted mb-4">根据分镜提示词自动提取所需素材，匹配资产库，打包导出。只有「最终确认」版本的素材才会被打包。</div>
+    <div class="flex gap-2 mb-4">
+      <button class="btn btn--green" id="btnAnalyzePkg">🔍 分析需求</button>
+      <button class="btn btn--primary" id="btnCreatePkg">📦 创建打包</button>
+    </div>
+    <div id="pkgResult"></div>
+    <div class="section-title mt-4 mb-2">📋 历史打包</div>
+    <div id="pkgHistory"></div>
+  `;
+
+  document.getElementById('btnAnalyzePkg').onclick = () => analyzePackage();
+  document.getElementById('btnCreatePkg').onclick = () => createPackage();
+  document.getElementById('pkgProject').onchange = () => loadPackageHistory();
+
+  // 默认选中第一个项目
+  if (S.projects.length) {
+    document.getElementById('pkgProject').value = S.projects[0].id;
+    loadPackageHistory();
+  }
+}
+
+async function analyzePackage() {
+  const pid = document.getElementById('pkgProject').value;
+  if (!pid) { toast('请先选择项目'); return; }
+  toast('正在分析资产需求...');
+  const r = await api(`/asset-packages/${pid}/analyze`, { method: 'POST', body: {} });
+
+  const container = document.getElementById('pkgResult');
+  container.innerHTML = `
+    <div class="card mb-4">
+      <div class="section-title mb-2">📊 分析结果</div>
+      <div class="flex gap-4 mb-4">
+        <div class="badge badge--green" style="padding:6px 12px;font-size:.85rem">✓ 已匹配 ${r.matched_count} 项</div>
+        <div class="badge badge--rose" style="padding:6px 12px;font-size:.85rem">✗ 缺失 ${r.missing_count} 项</div>
+      </div>
+
+      ${r.matched_count > 0 ? `
+      <div class="section-title" style="font-size:.82rem;margin-bottom:8px">已匹配素材</div>
+      <table class="table mb-4">
+        <thead><tr><th>来源</th><th>分类</th><th>文件名</th><th>匹配关键词</th></tr></thead>
+        <tbody>${r.matched.map(m => `<tr>
+          <td><span class="badge badge--${m.source==='global'?'purple':'blue'}">${m.source==='global'?'全局':'项目'}</span></td>
+          <td>${m.category}</td>
+          <td class="text-muted">${m.filename}</td>
+          <td>${m.keyword}</td>
+        </tr>`).join('')}</tbody>
+      </table>` : ''}
+
+      ${r.missing_count > 0 ? `
+      <div class="section-title" style="font-size:.82rem;margin-bottom:8px">缺失素材</div>
+      <table class="table">
+        <thead><tr><th>分类</th><th>关键词</th><th>操作建议</th></tr></thead>
+        <tbody>${r.missing.map(m => `<tr>
+          <td>${m.category}</td>
+          <td><span class="badge badge--amber">${m.keyword}</span></td>
+          <td class="text-muted text-sm">在 01_Global_Assets/ 或 02_Projects/ 对应目录下添加素材</td>
+        </tr>`).join('')}</tbody>
+      </table>` : ''}
+    </div>
+  `;
+}
+
+async function createPackage() {
+  const pid = document.getElementById('pkgProject').value;
+  if (!pid) { toast('请先选择项目'); return; }
+  toast('正在创建素材包...');
+  const r = await api(`/asset-packages/${pid}/create`, { method: 'POST', body: { name: `素材包_${new Date().toLocaleDateString()}` } });
+  toast(`素材包已创建: ${r.matched_assets?.length || 0} 项已匹配`);
+  loadPackageHistory();
+}
+
+async function loadPackageHistory() {
+  const pid = document.getElementById('pkgProject')?.value;
+  const container = document.getElementById('pkgHistory');
+  if (!pid || !container) return;
+
+  let packages = [];
+  try { packages = await api(`/asset-packages/${pid}/packages`); } catch(e) {}
+
+  if (!packages.length) {
+    container.innerHTML = '<div class="text-muted text-sm">暂无打包记录</div>';
+    return;
+  }
+
+  container.innerHTML = packages.map(pkg => `
+    <div class="card mb-2 fade-up">
+      <div class="flex items-center justify-between">
+        <div>
+          <div style="font-weight:500">${esc(pkg.name)}</div>
+          <div class="text-xs text-muted">${pkg.created_time} · 匹配 ${pkg.matched_assets?.length||0} 项 · 缺失 ${pkg.missing_assets?.length||0} 项</div>
+        </div>
+        <div class="flex gap-2">
+          <span class="badge badge--${pkg.status==='packed'?'green':pkg.status==='ready'?'blue':'gray'}">${pkg.status==='packed'?'已导出':pkg.status==='ready'?'待导出':'草稿'}</span>
+          <button class="btn btn--sm btn--green" data-pkgid="${pkg.id}" data-action="export">导出</button>
+          <button class="btn btn--sm btn--rose" data-pkgid="${pkg.id}" data-action="delete">删除</button>
+        </div>
+      </div>
+      ${pkg.export_path ? `<div class="text-xs text-muted mt-2">导出路径: ${esc(pkg.export_path)}</div>` : ''}
+    </div>
+  `).join('');
+
+  container.querySelectorAll('button[data-action="export"]').forEach(btn => {
+    btn.onclick = async () => {
+      toast('正在导出素材包...');
+      const r = await api(`/asset-packages/packages/${btn.dataset.pkgid}/export`, { method: 'POST', body: {} });
+      toast(`导出完成: ${r.exported_count} 个文件`);
+      loadPackageHistory();
+    };
+  });
+  container.querySelectorAll('button[data-action="delete"]').forEach(btn => {
+    btn.onclick = async () => {
+      await api(`/asset-packages/packages/${btn.dataset.pkgid}`, { method: 'DELETE' });
+      toast('已删除');
+      loadPackageHistory();
+    };
+  });
+}
+
+/* ──── 剧本生成 ──── */
+function renderNovelScript(c) {
+  c.innerHTML = `
+    <div class="text-sm text-muted mb-4">将小说章节转换为结构化剧本，自动估算时长并拆分为10-15秒分镜头。</div>
+    <div id="scriptChapterList"></div>
+    <div id="scriptDetail" class="mt-4"></div>
+  `;
+  loadScriptChapters();
+}
+
+async function loadScriptChapters() {
+  const container = document.getElementById('scriptChapterList');
+  if (!container) return;
+  const chapters = S.novelChapters;
+  if (!chapters.length) {
+    container.innerHTML = '<div class="empty"><div class="empty__icon">📝</div><div class="empty__title">暂无章节</div><div class="empty__desc">请先在「章节创作」中添加小说内容</div></div>';
+    return;
+  }
+  let scriptFiles = [];
+  try { scriptFiles = await api(`/assets/${S.novelProject.name}?category=script`); } catch(e) {}
+
+  container.innerHTML = `<table class="table"><thead><tr><th>章节</th><th>标题</th><th>字数</th><th>剧本状态</th><th>操作</th></tr></thead><tbody>${
+    chapters.map(ch => {
+      const matched = scriptFiles.filter(f => f.includes(ch.title?.substring(0,4) || '___'));
+      const hasScript = matched.length > 0;
+      return `<tr>
+        <td>${ch.chapter_number}</td>
+        <td style="font-weight:500">${esc(ch.title)}</td>
+        <td>${ch.word_count || 0}</td>
+        <td>${hasScript ? '<span class="badge badge--green">已生成</span>' : '<span class="badge badge--gray">未生成</span>'}</td>
+        <td>
+          <button class="btn btn--sm btn--green" data-chid="${ch.id}" data-action="gen-script">🤖 生成</button>
+          ${hasScript ? `<button class="btn btn--sm" data-file="${matched[0]}" data-action="view-script">👁 查看</button>` : ''}
+          <button class="btn btn--sm btn--amber" data-chid="${ch.id}" data-action="run-all">全流程</button>
+        </td>
+      </tr>`;
+    }).join('')
+  }</tbody></table>`;
+
+  container.querySelectorAll('button[data-action="gen-script"]').forEach(btn => {
+    btn.onclick = async () => {
+      toast('正在生成剧本...');
+      await api('/pipeline/run', { method: 'POST', body: { stage: 'pipeline.novel2script', project_name: S.novelProject.name, project_id: S.novelProject.id, chapter_id: parseInt(btn.dataset.chid) } });
+      toast('任务已提交，请在任务中心查看进度');
+    };
+  });
+  container.querySelectorAll('button[data-action="view-script"]').forEach(btn => {
+    btn.onclick = () => viewScriptDetail(btn.dataset.file);
+  });
+  container.querySelectorAll('button[data-action="run-all"]').forEach(btn => {
+    btn.onclick = async () => {
+      toast('全流程已启动...');
+      await api('/pipeline/run', { method: 'POST', body: { stage: 'pipeline.run_all', project_name: S.novelProject.name, project_id: S.novelProject.id, chapter_id: parseInt(btn.dataset.chid) } });
+    };
+  });
+}
+
+async function viewScriptDetail(filename) {
+  const container = document.getElementById('scriptDetail');
+  if (!container) return;
+  try {
+    const resp = await fetch(`/files/${S.novelProject.name}/script/${encodeURIComponent(filename)}`);
+    const data = await resp.json();
+
+    const shots = data.shots || [];
+    const scenes = data.scenes || [];
+
+    container.innerHTML = `
+      <div class="card fade-up">
+        <div class="flex items-center justify-between mb-4">
+          <div class="section-title">🎬 ${esc(data.title || filename)}</div>
+          <div class="flex gap-2">
+            <span class="badge badge--purple">总时长 ${data.total_duration || 0}秒</span>
+            <span class="badge badge--blue">${shots.length || scenes.length} 个镜头</span>
+          </div>
+        </div>
+
+        ${shots.length ? `
+        <div class="section-title mb-2" style="font-size:.85rem">分镜头列表</div>
+        <table class="table">
+          <thead><tr><th>#</th><th>地点</th><th>镜头</th><th>时长</th><th>氛围</th><th>画面描述</th></tr></thead>
+          <tbody>${shots.map(s => `
+            <tr>
+              <td><span class="badge badge--purple">${s.shot_id}</span></td>
+              <td>${esc(s.location || '')}</td>
+              <td>${esc(s.camera || '')}</td>
+              <td><span class="badge badge--amber">${s.duration || '?'}秒</span></td>
+              <td class="text-muted">${esc(s.mood || '')}</td>
+              <td class="text-muted" style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.description || '')}</td>
+            </tr>
+          `).join('')}</tbody>
+        </table>` : `
+        <div class="section-title mb-2" style="font-size:.85rem">场景列表</div>
+        ${scenes.map(s => `
+          <div style="padding:10px 0;border-bottom:1px solid var(--border)">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="badge badge--purple">场景${s.scene_id}</span>
+              <strong>${esc(s.location || '')}</strong>
+              <span class="text-muted">${esc(s.time || '')}</span>
+              <span class="badge badge--amber">${s.estimated_seconds || '?'}秒</span>
+            </div>
+            <div class="text-sm text-muted">${esc(s.description || '')}</div>
+            ${s.dialogue?.length ? `<div class="text-sm mt-1">${s.dialogue.map(d => `<span style="color:var(--purple)">${esc(d.character)}</span>: ${esc(d.line)}`).join(' | ')}</div>` : ''}
+          </div>
+        `).join('')}`}
+
+        ${scenes.length ? `
+        <div class="section-title mb-2 mt-4" style="font-size:.85rem">角色</div>
+        <div class="flex gap-2 flex-wrap">${(data.characters || []).map(c => `
+          <div class="card" style="padding:8px 12px">
+            <strong>${esc(c.name)}</strong>
+            <span class="text-sm text-muted"> ${esc(c.description || '')}</span>
+          </div>
+        `).join('')}</div>` : ''}
+      </div>
+    `;
+  } catch (e) {
+    container.innerHTML = `<div class="card"><div class="text-sm text-muted">加载失败: ${e.message}</div></div>`;
+  }
+}
+
+/* ──── 分镜提示词 ──── */
+function renderNovelStoryboard(c) {
+  c.innerHTML = `
+    <div class="text-sm text-muted mb-4">从剧本生成电影级分镜提示词，点击可展开查看完整 Prompt 及对应资产图。</div>
+    <div id="sbPromptList"></div>
+  `;
+  loadStoryboardPrompts();
+}
+
+async function loadStoryboardPrompts() {
+  const container = document.getElementById('sbPromptList');
+  if (!container) return;
+  let promptFiles = [];
+  let imageFiles = [];
+  try { promptFiles = await api(`/assets/${S.novelProject.name}?category=prompt`); } catch(e) {}
+  try { imageFiles = await api(`/assets/${S.novelProject.name}?category=image`); } catch(e) {}
+
+  if (!promptFiles.length) {
+    container.innerHTML = '<div class="empty"><div class="empty__icon">🎞</div><div class="empty__title">暂无分镜提示词</div><div class="empty__desc">先在「剧本生成」中生成剧本，然后运行「剧本→提示词」流水线</div></div>';
+    return;
+  }
+
+  container.innerHTML = promptFiles.map(f => `
+    <div class="card mb-2 fade-up" style="cursor:pointer" data-file="${esc(f)}" data-action="expand-prompt">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span>🎞</span>
+          <strong style="font-size:.88rem">${esc(f)}</strong>
+        </div>
+        <span style="color:var(--t3);font-size:.8rem">▼ 点击展开</span>
+      </div>
+      <div class="prompt-detail" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"></div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('[data-action="expand-prompt"]').forEach(card => {
+    card.onclick = async () => {
+      const detail = card.querySelector('.prompt-detail');
+      if (detail.style.display !== 'none') {
+        detail.style.display = 'none';
+        return;
+      }
+      detail.style.display = 'block';
+      detail.innerHTML = '<div class="text-sm text-muted">加载中...</div>';
+
+      try {
+        const resp = await fetch(`/files/${S.novelProject.name}/prompt/${encodeURIComponent(card.dataset.file)}`);
+        const data = await resp.json();
+        const vp = data.video_prompt || '';
+        const np = data.negative_prompt || '';
+
+        // 尝试匹配资产图
+        const matchedImages = imageFiles.filter(img => {
+          const imgLower = img.toLowerCase();
+          const keywords = vp.split(/[，,、]/).slice(0, 5);
+          return keywords.some(kw => kw.length > 1 && imgLower.includes(kw.substring(0, 3)));
+        });
+
+        detail.innerHTML = `
+          <div class="mb-2">
+            <div class="text-xs text-muted mb-1">正向提示词 (video_prompt)</div>
+            <div style="padding:8px 12px;background:var(--bg);border-radius:var(--r);font-size:.82rem;line-height:1.6;word-break:break-all">${esc(vp)}</div>
+          </div>
+          <div class="mb-2">
+            <div class="text-xs text-muted mb-1">负面提示词 (negative_prompt)</div>
+            <div style="padding:8px 12px;background:var(--bg);border-radius:var(--r);font-size:.82rem;line-height:1.6;color:var(--rose)">${esc(np)}</div>
+          </div>
+          <div class="flex gap-4 mb-2">
+            ${data.camera ? `<div class="text-xs"><span class="text-muted">镜头:</span> ${esc(data.camera)}</div>` : ''}
+            ${data.lighting ? `<div class="text-xs"><span class="text-muted">灯光:</span> ${esc(data.lighting)}</div>` : ''}
+            ${data.duration ? `<div class="text-xs"><span class="text-muted">时长:</span> ${esc(data.duration)}</div>` : ''}
+          </div>
+          ${matchedImages.length ? `
+          <div class="mt-2">
+            <div class="text-xs text-muted mb-1">🖼 对应资产图 (${matchedImages.length}张)</div>
+            <div class="flex gap-2" style="flex-wrap:wrap">
+              ${matchedImages.map(img => `
+                <div style="width:100px;height:60px;background:var(--bg4);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:.7rem;color:var(--t3);border:1px solid var(--border)">${esc(img.substring(0,15))}</div>
+              `).join('')}
+            </div>
+          </div>` : '<div class="text-xs text-muted mt-2">💡 在 08_Image/ 目录放入资产图后，系统会自动匹配</div>'}
+          <button class="btn btn--sm mt-2" onclick="event.stopPropagation();navigator.clipboard.writeText('${esc(vp).replace(/'/g,"\\'")}');toast('已复制到剪贴板')">📋 复制提示词</button>
+        `;
+      } catch (e) {
+        detail.innerHTML = `<div class="text-sm text-muted">加载失败</div>`;
+      }
+    };
+  });
+}
+
+/* ──── 资产提示词 ──── */
+function renderNovelAssetPrompts(c) {
+  c.innerHTML = `
+    <div class="text-sm text-muted mb-4">从剧本中提取角色、场景、道具等资产的视觉提示词，用于生成资产参考图。</div>
+    <div class="flex gap-2 mb-4">
+      <button class="btn btn--green" id="btnExtractAssets">🤖 从剧本提取资产</button>
+      <button class="btn btn--primary" id="btnAddAsset">＋ 手动添加</button>
+    </div>
+    <div id="assetPromptList"></div>
+  `;
+  document.getElementById('btnExtractAssets').onclick = () => toast('资产提取功能开发中');
+  document.getElementById('btnAddAsset').onclick = () => toast('手动添加功能开发中');
+  // 显示已有角色作为资产
+  const chars = S.novelCharacters;
+  const list = document.getElementById('assetPromptList');
+  if (chars.length) {
+    list.innerHTML = `
+      <div class="section-title mb-2">👥 角色资产</div>
+      <div class="asset-grid mb-4">${chars.map(ch => `
+        <div class="asset-card fade-up">
+          <div class="asset-card__image">👤</div>
+          <div class="asset-card__body">
+            <div class="asset-card__name">${esc(ch.name)}</div>
+            <div class="asset-card__meta"><span>${esc(ch.role)}</span><span class="badge badge--purple">角色</span></div>
+          </div>
+        </div>
+      `).join('')}</div>
+    `;
+  }
+}
+
+/* ──── 资产图管理 ──── */
+function renderNovelAssetImages(c) {
+  c.innerHTML = `
+    <div class="text-sm text-muted mb-4">管理资产参考图。可以从外部导入图片，或通过 AI 生成。只有「最终确认」版本的图片才会进入打包。</div>
+    <div class="flex gap-2 mb-4">
+      <button class="btn btn--primary" id="btnImportImg">📥 导入图片</button>
+      <button class="btn btn--green" id="btnGenImg">🤖 AI 生成</button>
+    </div>
+    <div class="section-title mb-2">📁 已有资产图</div>
+    <div id="assetImageGrid"></div>
+  `;
+  document.getElementById('btnImportImg').onclick = () => toast('将图片放入 02_Projects/{项目名}/08_Image/ 目录即可');
+  document.getElementById('btnGenImg').onclick = () => toast('AI 图片生成功能开发中');
+  loadAssetImages();
+}
+
+async function loadAssetImages() {
+  const container = document.getElementById('assetImageGrid');
+  if (!container) return;
+  let images = [];
+  try { images = await api(`/assets/${S.novelProject.name}?category=image`); } catch(e) {}
+
+  if (!images.length) {
+    container.innerHTML = '<div class="text-muted text-sm">暂无资产图，放入 02_Projects/{项目名}/08_Image/ 目录即可自动识别</div>';
+    return;
+  }
+  container.innerHTML = `<div class="asset-grid">${images.map(f => `
+    <div class="asset-card fade-up">
+      <div class="asset-card__image">🖼</div>
+      <div class="asset-card__body">
+        <div class="asset-card__name">${esc(f)}</div>
+        <div class="asset-card__meta"><span>资产图</span></div>
+      </div>
+    </div>
+  `).join('')}</div>`;
+}
+
+/* ──── 打包导出 ──── */
+function renderNovelPackage(c) {
+  c.innerHTML = `
+    <div class="text-sm text-muted mb-4">打包最终确认的分镜提示词和资产图，导出后可直接丢给豆包生成视频。</div>
+    <div class="card mb-4">
+      <div class="section-title mb-2">📦 打包内容说明</div>
+      <div class="text-sm" style="line-height:1.8">
+        <div>• <strong>分镜提示词</strong>：每个场景的电影级 Prompt（从「分镜提示词」阶段获取）</div>
+        <div>• <strong>角色资产图</strong>：最终确认版的角色参考图</div>
+        <div>• <strong>场景资产图</strong>：最终确认版的场景参考图</div>
+        <div>• <strong>道具资产图</strong>：最终确认版的道具参考图</div>
+        <div class="mt-2 text-muted">所有素材使用规范命名：{类型}_{名称}_{关键词}_{版本}.png</div>
+      </div>
+    </div>
+    <div class="flex gap-2 mb-4">
+      <button class="btn btn--green" id="btnAnalyzePkg2">🔍 分析需求</button>
+      <button class="btn btn--primary" id="btnCreatePkg2">📦 创建并导出</button>
+      <button class="btn btn--amber" id="btnAILearn">🤖 AI 学习：丰富全局资产</button>
+    </div>
+    <div id="pkgResult2"></div>
+  `;
+  document.getElementById('btnAnalyzePkg2').onclick = () => analyzeNovelPackage();
+  document.getElementById('btnCreatePkg2').onclick = () => createNovelPackage();
+  document.getElementById('btnAILearn').onclick = () => aiLearnFromFinals();
+}
+
+async function analyzeNovelPackage() {
+  toast('正在分析资产需求...');
+  const r = await api(`/asset-packages/${S.novelProject.id}/analyze`, { method: 'POST', body: {} });
+  const container = document.getElementById('pkgResult2');
+  container.innerHTML = `
+    <div class="card mb-4">
+      <div class="flex gap-4 mb-2">
+        <span class="badge badge--green" style="padding:6px 12px">✓ 匹配 ${r.matched_count} 项</span>
+        <span class="badge badge--rose" style="padding:6px 12px">✗ 缺失 ${r.missing_count} 项</span>
+      </div>
+      ${r.matched.length ? `<div class="text-sm text-muted">已匹配：${r.matched.map(m => m.filename).join('、')}</div>` : ''}
+      ${r.missing.length ? `<div class="text-sm" style="color:var(--amber)">缺失：${r.missing.map(m => m.keyword).join('、')}</div>` : ''}
+    </div>
+  `;
+}
+
+async function createNovelPackage() {
+  toast('正在创建素材包并导出...');
+  const r = await api(`/asset-packages/${S.novelProject.id}/create`, { method: 'POST', body: { name: `${S.novelProject.name}_素材包_${new Date().toLocaleDateString()}` } });
+  const exp = await api(`/asset-packages/packages/${r.id}/export`, { method: 'POST', body: {} });
+  const container = document.getElementById('pkgResult2');
+  if (exp.ok) {
+    container.innerHTML = `
+      <div class="card">
+        <div class="section-title mb-2">✅ 导出完成</div>
+        <div class="text-sm mb-2">导出路径：${esc(exp.export_dir)}</div>
+        <div class="text-sm mb-2">已导出 ${exp.exported_count} 个文件</div>
+        <div class="text-sm text-muted mt-2">将导出文件夹中的内容直接丢给豆包即可生成视频。</div>
+      </div>
+    `;
+  } else {
+    container.innerHTML = `
+      <div class="card" style="border-left:3px solid var(--amber)">
+        <div class="text-sm" style="color:var(--amber)">${esc(exp.error || '没有匹配的资产可导出')}</div>
+        <div class="text-sm text-muted mt-2">请先在「资产管理」中导入资产图，并确认最终版。</div>
+      </div>
+    `;
+  }
+}
+
+async function aiLearnFromFinals() {
+  toast('AI 正在分析最终版素材...');
+  try {
+    const r = await api('/global-assets/suggest', { method: 'POST', body: { project_id: S.novelProject?.id } });
+    const container = document.getElementById('pkgResult2');
+    if (!r.suggestions || !r.suggestions.length) {
+      container.innerHTML = `<div class="card"><div class="text-sm text-muted">${r.message || '没有新的建议'}</div></div>`;
+      return;
+    }
+    container.innerHTML = `
+      <div class="card mb-4">
+        <div class="section-title mb-2">🤖 AI 分析结果</div>
+        <div class="text-sm mb-4" style="color:var(--t2)">${esc(r.analysis || '')}</div>
+        <div class="section-title mb-2" style="font-size:.85rem">建议添加的资产：</div>
+        ${r.suggestions.map((s, i) => `
+          <div class="flex items-center justify-between" style="padding:8px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <span class="badge badge--purple" style="margin-right:8px">${esc(s.category)}</span>
+              <strong>${esc(s.name)}</strong>
+              <span class="text-sm text-muted"> — ${esc(s.reason || s.description)}</span>
+            </div>
+            <button class="btn btn--sm btn--green" data-idx="${i}">添加</button>
+          </div>
+        `).join('')}
+        <button class="btn btn--primary mt-4" id="btnApplyAll">✅ 全部添加到全局资产库</button>
+      </div>
+    `;
+    document.getElementById('btnApplyAll').onclick = async () => {
+      for (const s of r.suggestions) {
+        await api('/global-assets/apply-suggestion', {
+          method: 'POST',
+          body: { category: s.category, name: s.name, content: { 名称: s.name, 描述: s.description, 提示词: s.prompt } }
+        });
+      }
+      toast(`已添加 ${r.suggestions.length} 个资产到全局资产库`);
+      loadGlobalAssets();
+    };
+  } catch (e) {
+    toast('AI 分析失败: ' + e.message);
+  }
+}
+
+/* ──── Stage Status ──── */
+function getNovelStageStatus(stage) {
+  switch (stage) {
+    case 'world': return S.novelWorld ? '✅' : '○';
+    case 'character': return S.novelCharacters.length ? '✅' : '○';
+    case 'outline': return S.novelOutline ? '✅' : '○';
+    case 'plotpoints': return S.novelPlotPoints.length ? '✅' : '○';
+    case 'chapters': return S.novelChapters.length ? '✅' : '○';
+    default: return '○';
+  }
+}
+
+/* ═══════════ SETTINGS ═══════════ */
+function renderSettings(c) {
+  c.innerHTML = `
+    <div class="section-title mb-4">⚙ 系统设置</div>
+    <div class="card mb-4" style="max-width:600px">
+      <div class="section-title mb-2" style="font-size:.88rem">项目根目录</div>
+      <div class="text-sm text-muted mb-2">当前项目文件存储路径</div>
+      <div style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);font-family:var(--mono);font-size:.82rem">AI_Director/</div>
+    </div>
+    <div class="card mb-4" style="max-width:600px">
+      <div class="section-title mb-2" style="font-size:.88rem">目录结构说明</div>
+      <div style="font-family:var(--mono);font-size:.78rem;line-height:1.8;color:var(--t2)">
+        <div>01_Global_Assets/ — 全局资产库（镜头/灯光/情绪/风格等）</div>
+        <div>02_Projects/{项目名}/ — 项目独立资产</div>
+        <div>  ├─ 04_Story/ — 小说原文</div>
+        <div>  ├─ 05_Script/ — 结构化剧本</div>
+        <div>  ├─ 06_Storyboard/ — 分镜</div>
+        <div>  ├─ 07_Prompt/ — 视觉提示词</div>
+        <div>  ├─ 08_Image/ — 生成/导入的图片</div>
+        <div>  └─ 09_Video/ — 成片视频</div>
+        <div>04_Output/ — 全局输出 + 数据库</div>
+      </div>
+    </div>
+    <div class="card mb-4" style="max-width:600px">
+      <div class="section-title mb-2" style="font-size:.88rem">素材导入方式</div>
+      <div class="text-sm" style="line-height:1.8;color:var(--t2)">
+        <div>• 资产图：直接放入 <code>02_Projects/{项目名}/08_Image/</code> 目录</div>
+        <div>• 小说原文：放入 <code>02_Projects/{项目名}/04_Story/</code> 目录</div>
+        <div>• 全局资产：放入 <code>01_Global_Assets/{分类}/</code> 目录</div>
+        <div class="mt-2">文件命名规范：<code>{类型}_{名称}_{关键词}.扩展名</code></div>
+      </div>
+    </div>
+    <div class="card" style="max-width:600px">
+      <div class="section-title mb-2" style="font-size:.88rem">环境变量</div>
+      <div style="font-family:var(--mono);font-size:.78rem;line-height:1.8;color:var(--t2)">
+        <div><code>AI_DIRECTOR_OFFLINE=1</code> — 离线模式（不调 LLM，用 Mock 数据）</div>
+        <div><code>PORT=5000</code> — 服务端口</div>
+      </div>
+    </div>
+    <div class="card mt-4" style="max-width:600px;border-left:3px solid var(--rose)">
+      <div class="section-title mb-2" style="font-size:.88rem;color:var(--rose)">⚠ 数据库清理</div>
+      <div class="text-sm text-muted mb-4">清理测试数据，不会删除项目文件（02_Projects/ 下的文件保留）。</div>
+      <div class="flex gap-2">
+        <button class="btn btn--rose" id="btnCleanTasks">🗑 清理已完成任务</button>
+        <button class="btn btn--rose" id="btnCleanVersions">🗑 清理所有版本记录</button>
+      </div>
+      <div id="cleanResult" class="text-sm mt-2"></div>
+    </div>
+  `;
+  document.getElementById('btnCleanTasks').onclick = async () => {
+    if (!confirm('确定清理已完成的任务记录？')) return;
+    const r = await fetch('/api/tasks/clean', { method: 'POST' });
+    const d = await r.json();
+    document.getElementById('cleanResult').textContent = d.message || '已清理';
+    toast('任务记录已清理');
+  };
+  document.getElementById('btnCleanVersions').onclick = async () => {
+    if (!confirm('确定清理所有版本记录？')) return;
+    const r = await fetch('/api/asset-versions/clean', { method: 'POST' });
+    const d = await r.json();
+    document.getElementById('cleanResult').textContent = d.message || '已清理';
+    toast('版本记录已清理');
+  };
+}
+
+/* ═══════════ HELP ═══════════ */
+function renderHelp(c) {
+  c.innerHTML = `
+    <div class="section-title mb-4">❓ 使用帮助</div>
+    <div class="card mb-4" style="max-width:700px">
+      <div class="section-title mb-2" style="font-size:.88rem">🎬 完整生产流程</div>
+      <div style="font-size:.85rem;line-height:2;color:var(--t2)">
+        <div><strong style="color:var(--purple)">第一阶段 · 小说创作</strong></div>
+        <div>  ① 世界观设定 → 构建故事世界的基础框架</div>
+        <div>  ② 人物设计 → 创建立体的角色形象</div>
+        <div>  ③ 剧情大纲 → 规划故事主线与走向</div>
+        <div>  ④ 关键节点 → 拆解核心剧情转折点</div>
+        <div>  ⑤ 章节创作 → 撰写小说正文</div>
+        <div class="mt-2"><strong style="color:var(--blue)">第二阶段 · 剧本+分镜</strong></div>
+        <div>  ⑥ 剧本生成 → 小说自动转为结构化剧本</div>
+        <div>  ⑦ 分镜提示词 → 剧本转为电影级视觉 Prompt</div>
+        <div class="mt-2"><strong style="color:var(--amber)">第三阶段 · 资产管理</strong></div>
+        <div>  ⑧ 资产提示词 → 从剧本提取角色/场景/道具提示词</div>
+        <div>  ⑨ 资产图管理 → 生成或导入资产参考图</div>
+        <div class="mt-2"><strong style="color:var(--green)">第四阶段 · 打包导出</strong></div>
+        <div>  ⑩ 打包导出 → 分镜提示词 + 最终版资产图 → 丢给豆包生成视频</div>
+      </div>
+    </div>
+    <div class="card mb-4" style="max-width:700px">
+      <div class="section-title mb-2" style="font-size:.88rem">🤖 大模型配置说明</div>
+      <div style="font-size:.85rem;line-height:1.8;color:var(--t2)">
+        <div>1. 在「大模型配置」页面配置服务商 API Key</div>
+        <div>2. 设置全局默认模型（所有环节的兜底）</div>
+        <div>3. 可为每个环节单独选择模型和编写指令（覆盖全局）</div>
+        <div>4. 未配置 Key 时自动使用离线 Mock 数据</div>
+      </div>
+    </div>
+    <div class="card mb-4" style="max-width:700px">
+      <div class="section-title mb-2" style="font-size:.88rem">📦 素材打包说明</div>
+      <div style="font-size:.85rem;line-height:1.8;color:var(--t2)">
+        <div>1. 系统自动从分镜提示词中提取所需素材关键词</div>
+        <div>2. 匹配资产库中已有的最终确认版素材</div>
+        <div>3. 使用规范命名导出：{类型}_{名称}_{关键词}_{版本}.png</div>
+        <div>4. 导出后直接丢给豆包即可生成视频</div>
+      </div>
+    </div>
+    <div class="card" style="max-width:700px">
+      <div class="section-title mb-2" style="font-size:.88rem">⌨ 快捷操作</div>
+      <div style="font-size:.85rem;line-height:1.8;color:var(--t2)">
+        <div>• 版本管理：每次保存自动创建版本，可在版本选择器中确认最终版</div>
+        <div>• 素材导入：直接将文件放入对应目录即可自动识别</div>
+        <div>• 离线开发：设置环境变量 AI_DIRECTOR_OFFLINE=1 可不调 LLM</div>
+      </div>
+    </div>
+  `;
+}
+
+/* ──── 项目全局设定 ──── */
+async function renderNovelGlobals(c) {
+  let gs = {};
+  try { gs = await api(`/projects/${S.novelProject.id}/globals`); } catch(e) {}
+  let chars = S.novelCharacters || [];
+
+  const profiles = gs.character_profiles || {};
+
+  c.innerHTML = `
+    <div class="section-title mb-2">⚙ 项目全局设定</div>
+    <div class="text-sm text-muted mb-4">这些设定会自动注入到所有生成的剧本和分镜提示词中，保持全片风格统一。</div>
+
+    <!-- 视觉风格 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="card">
+        <div class="section-title mb-2" style="font-size:.85rem">🎨 视觉风格</div>
+        <div class="form-group"><label>画风</label><input type="text" id="gArtStyle" value="${esc(gs.art_style||'')}" placeholder="如：写实电影风、动漫、赛博朋克"></div>
+        <div class="form-group"><label>整体色彩</label><input type="text" id="gColor" value="${esc(gs.color_palette||'')}" placeholder="如：冷色调低饱和、暖色调"></div>
+        <div class="form-group"><label>默认光线</label><input type="text" id="gLighting" value="${esc(gs.lighting||'')}" placeholder="如：侧逆光、柔光"></div>
+        <div class="form-group"><label>整体氛围</label><input type="text" id="gMood" value="${esc(gs.mood||'')}" placeholder="如：压抑紧张、温馨"></div>
+      </div>
+      <div class="card">
+        <div class="section-title mb-2" style="font-size:.85rem">📐 输出参数</div>
+        <div class="flex gap-4">
+          <div class="form-group" style="flex:1"><label>分辨率</label><input type="text" id="gRes" value="${esc(gs.resolution||'1080p')}"></div>
+          <div class="form-group" style="flex:1"><label>帧率</label><input type="number" id="gFps" value="${gs.fps||24}"></div>
+          <div class="form-group" style="flex:1"><label>画面比例</label><input type="text" id="gRatio" value="${esc(gs.aspect_ratio||'16:9')}"></div>
+        </div>
+        <div class="section-title mb-2 mt-4" style="font-size:.85rem">✨ 全局提示词（自动注入每个分镜）</div>
+        <div class="form-group"><label>正向提示词</label><textarea id="gPositive" placeholder="自动追加到每个分镜的 video_prompt" style="min-height:60px">${esc(gs.positive_prompts||'')}</textarea></div>
+        <div class="form-group"><label>负面提示词</label><textarea id="gNegative" placeholder="自动追加到每个分镜的 negative_prompt" style="min-height:60px">${esc(gs.negative_prompts||'')}</textarea></div>
+      </div>
+    </div>
+
+    <!-- 角色视觉档案 -->
+    <div class="section-title mb-2 mt-4">👥 角色视觉档案</div>
+    <div class="text-sm text-muted mb-4">为每个角色设定外貌、服装状态、视觉提示词，生成分镜时自动引用。支持多套服装（随剧情变化）。</div>
+    <div id="characterProfiles"></div>
+
+    <button class="btn btn--primary mt-4" id="btnSaveGlobals">💾 保存全局设定</button>
+  `;
+
+  // 渲染角色档案
+  renderCharacterProfiles(chars, profiles);
+
+  document.getElementById('btnSaveGlobals').onclick = async () => {
+    // 收集角色档案
+    const updatedProfiles = {};
+    document.querySelectorAll('[data-char-name]').forEach(card => {
+      const name = card.dataset.charName;
+      updatedProfiles[name] = {
+        appearance: card.querySelector('.cp-appearance')?.value || '',
+        visual_prompt: card.querySelector('.cp-visual')?.value || '',
+        voice: card.querySelector('.cp-voice')?.value || '',
+        color_palette: card.querySelector('.cp-color')?.value || '',
+        outfits: profiles[name]?.outfits || {},
+      };
+    });
+
+    const data = {
+      art_style: document.getElementById('gArtStyle').value,
+      color_palette: document.getElementById('gColor').value,
+      lighting: document.getElementById('gLighting').value,
+      mood: document.getElementById('gMood').value,
+      positive_prompts: document.getElementById('gPositive').value,
+      negative_prompts: document.getElementById('gNegative').value,
+      resolution: document.getElementById('gRes').value,
+      fps: parseInt(document.getElementById('gFps').value) || 24,
+      aspect_ratio: document.getElementById('gRatio').value,
+      character_profiles: updatedProfiles,
+    };
+    await api(`/projects/${S.novelProject.id}/globals`, { method: 'PUT', body: data });
+    toast('全局设定已保存');
+  };
+}
+
+function renderCharacterProfiles(chars, profiles) {
+  const container = document.getElementById('characterProfiles');
+  if (!container) return;
+
+  if (!chars.length) {
+    container.innerHTML = '<div class="text-sm text-muted">请先在「人物设计」中创建角色</div>';
+    return;
+  }
+
+  container.innerHTML = chars.map(ch => {
+    const p = profiles[ch.name] || {};
+    const outfits = p.outfits || {};
+    return `
+      <div class="card mb-4" data-char-name="${esc(ch.name)}">
+        <div class="flex items-center justify-between mb-2">
+          <div class="section-title" style="font-size:.88rem">${esc(ch.name)} <span class="badge badge--purple">${esc(ch.role)}</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group"><label>外貌描述</label><textarea class="cp-appearance" placeholder="发型/瞳色/身材/特征标记" style="min-height:60px">${esc(p.appearance || ch.appearance || '')}</textarea></div>
+          <div class="form-group"><label>视觉提示词</label><textarea class="cp-visual" placeholder="用于AI生成该角色的提示词" style="min-height:60px">${esc(p.visual_prompt || ch.visual_prompt || '')}</textarea></div>
+          <div class="form-group"><label>音色</label><input type="text" class="cp-voice" value="${esc(p.voice || '')}" placeholder="如：低沉磁性男声"></div>
+          <div class="form-group"><label>专属色彩</label><input type="text" class="cp-color" value="${esc(p.color_palette || '')}" placeholder="如：黑红色系"></div>
+        </div>
+
+        <!-- 服装系统 -->
+        <div class="section-title mt-2 mb-2" style="font-size:.8rem">👔 服装系统（随剧情变化）</div>
+        <div class="outfit-list" data-char="${esc(ch.name)}">
+          ${Object.entries(outfits).map(([oname, odata]) => `
+            <div class="flex items-center gap-2 mb-2" style="padding:8px;background:var(--bg);border-radius:var(--r)">
+              <span class="badge badge--amber">${esc(oname)}</span>
+              <span class="text-sm text-muted flex-1">${esc(odata.description || '')}</span>
+              <span class="text-xs text-muted">${esc((odata.prompt || '').substring(0,30))}</span>
+            </div>
+          `).join('')}
+        </div>
+        <button class="btn btn--sm mt-2" data-char="${esc(ch.name)}" data-action="add-outfit">＋ 添加服装状态</button>
+      </div>
+    `;
+  }).join('');
+
+  container.querySelectorAll('[data-action="add-outfit"]').forEach(btn => {
+    btn.onclick = () => showAddOutfitModal(btn.dataset.char);
+  });
+}
+
+function showAddOutfitModal(charName) {
+  showModal(`添加服装状态 - ${charName}`, `
+    <div class="form-group"><label>服装名称</label><input type="text" id="oName" placeholder="如：战斗装、觉醒形态、正装"></div>
+    <div class="form-group"><label>描述</label><textarea id="oDesc" placeholder="服装的具体描述"></textarea></div>
+    <div class="form-group"><label>视觉提示词</label><textarea id="oPrompt" placeholder="用于AI生成该服装状态的提示词"></textarea></div>
+    <div class="form-group"><label>适用场景</label><input type="text" id="oScene" placeholder="如：战斗场景、正式场合"></div>
+  `, async () => {
+    await api(`/projects/${S.novelProject.id}/globals/characters/${charName}/outfit`, {
+      method: 'POST',
+      body: {
+        name: document.getElementById('oName').value,
+        description: document.getElementById('oDesc').value,
+        prompt: document.getElementById('oPrompt').value,
+        scene_context: document.getElementById('oScene').value,
+      }
+    });
+    toast('服装状态已添加');
+    renderNovelGlobals(document.getElementById('novelContent'));
+  });
+}
+
+/* ═══════════ MODALS ═══════════ */
+function showModal(title, bodyHTML, onConfirm) {
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal">
+      <div class="modal__header"><div class="modal__title">${title}</div><button class="modal__close" id="modalClose">✕</button></div>
+      <div class="modal__body">${bodyHTML}</div>
+      <div class="modal__footer"><button class="btn" id="modalCancel">取消</button><button class="btn btn--primary" id="modalConfirm">确定</button></div>
+    </div>
+  `;
+  modal.classList.add('show');
+  modal.querySelector('#modalClose').onclick = () => modal.classList.remove('show');
+  modal.querySelector('#modalCancel').onclick = () => modal.classList.remove('show');
+  modal.querySelector('#modalConfirm').onclick = async () => {
+    if (onConfirm) await onConfirm();
+    modal.classList.remove('show');
+  };
+}
+
+function showNewProjectModal() {
+  showModal('新建项目', `
+    <div class="form-group"><label>项目名称</label><input type="text" id="npName" placeholder="例：千渡念莞"></div>
+    <div class="form-group"><label>类型标签</label><input type="text" id="npGenre" placeholder="例：暗黑幻想"></div>
+    <div class="form-group"><label>项目简介</label><textarea id="npDesc" placeholder="简单描述项目..."></textarea></div>
+  `, async () => {
+    const name = document.getElementById('npName').value.trim();
+    if (!name) { toast('请输入项目名称'); return; }
+    await api('/projects', { method: 'POST', body: { name, genre: document.getElementById('npGenre').value, description: document.getElementById('npDesc').value } });
+    toast(`项目「${name}」已创建`);
+    loadProjects();
+  });
+}
+
+function showAddChapterModal() {
+  showModal('添加章节', `
+    <div class="form-group"><label>章节标题</label><input type="text" id="chTitle" placeholder="例：第一章 黎明之前"></div>
+    <div class="form-group"><label>文件名</label><input type="text" id="chFilename" placeholder="自动生成"></div>
+    <div class="form-group"><label>小说正文</label><textarea id="chContent" placeholder="粘贴小说文本..." style="min-height:200px"></textarea></div>
+  `, async () => {
+    const title = document.getElementById('chTitle').value.trim();
+    const content = document.getElementById('chContent').value;
+    if (!title) { toast('请输入标题'); return; }
+    const filename = document.getElementById('chFilename').value.trim() || `${title}.txt`;
+    await api(`/projects/${S.currentProject.id}/chapters`, { method: 'POST', body: { title, content, filename } });
+    toast('章节已添加');
+    loadChapters(S.currentProject.id);
+  });
+}
+
+function showProviderModal(key) {
+  const p = S.providers.find(x => x.key === key);
+  showModal(`配置 ${p?.name || key}`, `
+    <div class="form-group"><label>API Key</label><input type="password" id="pvKey" placeholder="输入 API Key"></div>
+    <div class="form-group"><label>Base URL</label><input type="text" id="pvUrl" value="${esc(p?.base_url || '')}" placeholder="API 端点"></div>
+  `, async () => {
+    const api_key = document.getElementById('pvKey').value.trim();
+    const base_url = document.getElementById('pvUrl').value.trim();
+    await api(`/providers/${key}`, { method: 'PUT', body: { api_key, base_url } });
+    toast('配置已保存');
+    loadProviders();
+  });
+}
+
+function showAddTermModal() {
+  showModal('添加 Prompt 词条', `
+    <div class="form-group"><label>词条</label><input type="text" id="termText" placeholder="例：电影级画面"></div>
+    <div class="form-group"><label>分类</label><input type="text" id="termCat" placeholder="例：风格"></div>
+  `, async () => {
+    const term = document.getElementById('termText').value.trim();
+    if (!term) { toast('请输入词条'); return; }
+    await api('/prompt-library', { method: 'POST', body: { term, category: document.getElementById('termCat').value } });
+    toast('词条已添加');
+    loadPromptTerms();
+  });
+}
+
+/* ═══════════ ACTIONS ═══════════ */
+async function openProject(id) {
+  const p = S.projects.find(x => x.id === id);
+  if (!p) return;
+  S.currentProject = p;
+  S.view = 'project-detail';
+  S.currentTab = 'chapters';
+  render();
+  await loadChapters(id);
+}
+
+async function runPipeline(stage, extra = {}) {
+  toast('任务已提交，请在任务中心查看进度');
+  await api('/pipeline/run', { method: 'POST', body: { stage, project_name: S.currentProject?.name, project_id: S.currentProject?.id, ...extra } });
+  // Refresh tasks after a moment
+  setTimeout(() => loadTasks(), 1000);
+}
+
+async function testProvider(key) {
+  toast('测试中...');
+  try {
+    const res = await api(`/providers/${key}/test`, { method: 'POST' });
+    toast(res.ok ? `连接成功: ${res.response}` : `连接失败: ${res.error}`);
+  } catch (e) {
+    toast(`测试失败: ${e.message}`);
+  }
+}
+
+async function loadProjectFiles(category) {
+  if (!S.currentProject) return;
+  try {
+    const files = await api(`/assets/${S.currentProject.name}?category=${category}`);
+    const container = document.getElementById(category === 'script' ? 'scriptFiles' : 'promptFiles');
+    if (!container) return;
+    if (!files.length) {
+      container.innerHTML = `<div class="empty"><div class="empty__icon">📄</div><div class="empty__title">暂无文件</div></div>`;
+      return;
+    }
+    container.innerHTML = `<div class="asset-grid">${files.map(f => `
+      <div class="asset-card fade-up"><div class="asset-card__image">📄</div><div class="asset-card__body"><div class="asset-card__name">${esc(f)}</div></div></div>
+    `).join('')}</div>`;
+  } catch (e) { /* ignore */ }
+}
+
+async function loadPromptTerms() {
+  try {
+    const terms = await api('/prompt-library');
+    const list = document.getElementById('termList');
+    if (!list) return;
+    if (!terms.length) {
+      list.innerHTML = '<div class="empty"><div class="empty__icon">📚</div><div class="empty__title">暂无词条</div></div>';
+      return;
+    }
+    list.innerHTML = `<table class="table"><thead><tr><th>词条</th><th>分类</th><th>使用次数</th><th>操作</th></tr></thead><tbody>${
+      terms.map(t => `<tr><td>${esc(t.term)}</td><td class="text-muted">${esc(t.category)}</td><td>${t.use_count}</td><td><button class="btn btn--sm btn--rose" data-id="${t.id}">删除</button></td></tr>`).join('')
+    }</tbody></table>`;
+    list.querySelectorAll('button').forEach(btn => {
+      btn.onclick = async () => {
+        await api(`/prompt-library/${btn.dataset.id}`, { method: 'DELETE' });
+        toast('已删除');
+        loadPromptTerms();
+      };
+    });
+  } catch (e) { /* ignore */ }
+}
+
+/* ═══════════ DATA LOADERS ═══════════ */
+async function loadProjects() {
+  try { S.projects = await api('/projects'); } catch (e) { S.projects = []; }
+  render();
+}
+
+async function loadChapters(projectId) {
+  try { S.chapters = await api(`/projects/${projectId}/chapters`); } catch (e) { S.chapters = []; }
+  const tc = document.getElementById('tabContent');
+  if (tc && S.currentTab === 'chapters') renderChaptersTab(tc);
+}
+
+async function loadProviders() {
+  try { S.providers = await api('/providers'); } catch (e) { S.providers = []; }
+  if (S.view === 'providers') render();
+}
+
+async function loadTasks() {
+  try { S.tasks = await api('/tasks'); } catch (e) { S.tasks = []; }
+}
+
+async function loadGlobalAssets() {
+  try { S.globalAssets = await api('/global-assets'); } catch (e) { S.globalAssets = {}; }
+}
+
+async function loadData() {
+  switch (S.view) {
+    case 'dashboard': case 'projects': await loadProjects(); break;
+    case 'providers': await loadProviders(); break;
+    case 'tasks': await loadTasks(); render(); break;
+    case 'global-assets': await loadGlobalAssets(); render(); break;
+    case 'prompt-library': break;
+    case 'novel': await loadProjects(); render(); break;
+  }
+}
+
+/* ═══════════ UTILS ═══════════ */
+function esc(s) { if (!s) return ''; const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+/* ═══════════ INIT ═══════════ */
+render();
+loadProjects();
+loadProviders();
+loadGlobalAssets();
+</script>
+</body>
+</html>

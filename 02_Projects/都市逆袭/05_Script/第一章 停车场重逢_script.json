@@ -1,0 +1,182 @@
+{
+  "title": "第一幕：停车场重逢",
+  "total_duration": 45,
+  "scenes": [
+    {
+      "scene_id": 1,
+      "location": "B2停车场",
+      "time": "深夜",
+      "weather": "阴沉",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "独自巡逻",
+          "emotion": "警觉"
+        }
+      ],
+      "dialogue": [],
+      "camera": "中景缓慢推进",
+      "mood": "压抑、紧张",
+      "description": "深夜停车场，昏暗灯光，一名保安独自巡逻",
+      "estimated_seconds": 15
+    },
+    {
+      "scene_id": 2,
+      "location": "停车场角落",
+      "time": "深夜",
+      "weather": "",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "制服绑匪",
+          "emotion": "冷静果断"
+        },
+        {
+          "name": "林婉儿",
+          "action": "惊恐",
+          "emotion": "释然"
+        }
+      ],
+      "dialogue": [
+        {
+          "character": "林婉儿",
+          "line": "陈默？"
+        },
+        {
+          "character": "陈默",
+          "line": "是我，没事了。"
+        }
+      ],
+      "camera": "近景→特写",
+      "mood": "紧张到释然",
+      "description": "男人制服三个绑匪，救下女人，四目相对",
+      "estimated_seconds": 20
+    },
+    {
+      "scene_id": 3,
+      "location": "停车场",
+      "time": "深夜",
+      "weather": "",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "伸手",
+          "emotion": "温柔"
+        }
+      ],
+      "dialogue": [],
+      "camera": "特写手部",
+      "mood": "温情",
+      "description": "男人向女人伸出手，灯光洒在两人身上",
+      "estimated_seconds": 10
+    }
+  ],
+  "characters": [
+    {
+      "name": "陈默",
+      "description": "寸头青年，眼神深邃，穿保安制服"
+    },
+    {
+      "name": "林婉儿",
+      "description": "长发披肩，职业装，惊魂未定"
+    }
+  ],
+  "shots": [
+    {
+      "shot_id": 1,
+      "scene_id": 1,
+      "duration": 10,
+      "location": "B2停车场",
+      "time": "深夜",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "独自巡逻",
+          "emotion": "警觉"
+        }
+      ],
+      "camera": "中景缓慢推进",
+      "mood": "压抑、紧张",
+      "description": "深夜停车场，昏暗灯光，一名保安独自巡逻",
+      "dialogue": [],
+      "art_style": "写实电影风",
+      "color_palette": "冷色调"
+    },
+    {
+      "shot_id": 2,
+      "scene_id": 2,
+      "duration": 15,
+      "location": "停车场角落",
+      "time": "深夜",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "制服绑匪",
+          "emotion": "冷静果断"
+        },
+        {
+          "name": "林婉儿",
+          "action": "惊恐",
+          "emotion": "释然"
+        }
+      ],
+      "camera": "近景→特写",
+      "mood": "紧张到释然",
+      "description": "男人制服三个绑匪，救下女人，四目相对",
+      "dialogue": [],
+      "art_style": "写实电影风",
+      "color_palette": "冷色调"
+    },
+    {
+      "shot_id": 3,
+      "scene_id": 2,
+      "duration": 10,
+      "location": "停车场角落",
+      "time": "深夜",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "制服绑匪",
+          "emotion": "冷静果断"
+        },
+        {
+          "name": "林婉儿",
+          "action": "惊恐",
+          "emotion": "释然"
+        }
+      ],
+      "camera": "近景→特写",
+      "mood": "紧张到释然",
+      "description": "男人制服三个绑匪，救下女人，四目相对",
+      "dialogue": [
+        {
+          "character": "林婉儿",
+          "line": "陈默？"
+        }
+      ],
+      "art_style": "写实电影风",
+      "color_palette": "冷色调"
+    },
+    {
+      "shot_id": 4,
+      "scene_id": 3,
+      "duration": 10,
+      "location": "停车场",
+      "time": "深夜",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "伸手",
+          "emotion": "温柔"
+        }
+      ],
+      "camera": "特写手部",
+      "mood": "温情",
+      "description": "男人向女人伸出手，灯光洒在两人身上",
+      "dialogue": [],
+      "art_style": "写实电影风",
+      "color_palette": "冷色调"
+    }
+  ],
+  "shot_count": 4
+}

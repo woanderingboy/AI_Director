@@ -1,0 +1,7 @@
+Flask>=3.0
+Flask-SQLAlchemy>=3.1
+Flask-Cors>=4.0
+PyYAML>=6.0
+requests>=2.31
+Pillow>=10.0
+pydantic>=2.0
