@@ -37,7 +37,7 @@ class LLMClient:
     PROVIDER_MODELS = {
         "openai": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
         "deepseek": ["deepseek-chat", "deepseek-reasoner"],
-        "volcengine": ["doubao-pro-32k", "doubao-lite-32k"],
+        "volcengine": ["glm-5-2-260617", "doubao-seed-2-1-turbo-260628"],
         "qwen": ["qwen-max", "qwen-plus", "qwen-turbo"],
         "glm": ["glm-4-plus", "glm-4-flash", "glm-4-long"],
         "custom": [],
@@ -56,7 +56,7 @@ class LLMClient:
             "deepseek": "deepseek-chat",
             "glm": "glm-4-flash",
             "qwen": "qwen-max",
-            "volcengine": "doubao-pro-32k",
+            "volcengine": "glm-5-2-260617",
         }
         return defaults.get(self.provider_key, "gpt-4o-mini")
 

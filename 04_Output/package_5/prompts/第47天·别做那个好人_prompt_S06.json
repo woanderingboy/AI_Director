@@ -1,0 +1,21 @@
+{
+  "shot_id": 6,
+  "scene_id": 2,
+  "video_prompt": "电影级画面，全景，暴雨夜空，林小满震惊地指向天空，远处江面，三架涂着红十字的无人机掠过，投下成串的照明弹，照亮夜空，强烈的明暗对比，史诗感，冷色调，【角色一致性锁定·老周】寸头灰白短发，方脸，左颊有旧烧伤疤痕，深蓝工装，体格壮硕；realistic, buzz-cut grey hair, square face, old burn scar on left cheek, dark-blue workwear, burly，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+  "negative_prompt": "白天，低质量，模糊，卡通，动漫，无无人机，无照明弹",
+  "camera": "镜头向上摇，全景转远景",
+  "lighting": "照明弹强光照亮夜空和人物面部，高反差",
+  "duration": "14s",
+  "mood": "紧张，转瞬即逝的希望与新的危机",
+  "characters": [
+    "老周",
+    "苏晚",
+    "林小满"
+  ],
+  "location": "街角",
+  "locked_characters": [
+    "老周",
+    "苏晚",
+    "林小满"
+  ]
+}

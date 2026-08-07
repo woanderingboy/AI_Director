@@ -1,0 +1,219 @@
+{
+  "title": "停车场重逢",
+  "total_duration": 30,
+  "characters": [
+    {
+      "name": "陈默",
+      "description": "身穿保安制服，寸头，眼神沉静而警觉，身手矫健"
+    },
+    {
+      "name": "林婉儿",
+      "description": "衣着略显凌乱，面容姣好，神情惊恐"
+    },
+    {
+      "name": "绑匪A",
+      "description": "黑衣蒙面，身形壮硕"
+    },
+    {
+      "name": "绑匪B",
+      "description": "黑衣蒙面，中等身材"
+    },
+    {
+      "name": "绑匪C",
+      "description": "黑衣蒙面，手持绳索"
+    }
+  ],
+  "scenes": [
+    {
+      "scene_id": 1,
+      "location": "B2停车场",
+      "time": "深夜",
+      "weather": "无",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "巡逻",
+          "emotion": "警觉"
+        },
+        {
+          "name": "绑匪A",
+          "action": "控制林婉儿",
+          "emotion": "粗暴"
+        },
+        {
+          "name": "绑匪B",
+          "action": "控制林婉儿",
+          "emotion": "紧张"
+        },
+        {
+          "name": "绑匪C",
+          "action": "控制林婉儿",
+          "emotion": "紧张"
+        },
+        {
+          "name": "林婉儿",
+          "action": "挣扎",
+          "emotion": "恐惧"
+        }
+      ],
+      "dialogue": [],
+      "camera": "全景推至中景",
+      "mood": "压抑、悬疑",
+      "description": "昏暗的B2停车场，只有应急灯泛着惨红的光。陈默身穿保安制服独自巡逻，寸头下的眼神沉静警觉。镜头推向角落，三个黑衣蒙面绑匪正捂住一名女子的嘴，女子拼命挣扎。",
+      "estimated_seconds": 15
+    },
+    {
+      "scene_id": 2,
+      "location": "B2停车场角落",
+      "time": "深夜",
+      "weather": "无",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "潜行、出招制服",
+          "emotion": "冷静果断"
+        },
+        {
+          "name": "绑匪A",
+          "action": "被击倒",
+          "emotion": "惊愕"
+        },
+        {
+          "name": "绑匪B",
+          "action": "被踢飞",
+          "emotion": "痛苦"
+        },
+        {
+          "name": "绑匪C",
+          "action": "被反关节按倒",
+          "emotion": "痛苦"
+        }
+      ],
+      "dialogue": [],
+      "camera": "移镜头，近景，特写",
+      "mood": "紧张、凌厉",
+      "description": "陈默压低身体，悄无声息地贴近。镜头快速切换：陈默一记手刀劈晕绑匪A，转身一脚踢飞绑匪B，最后反关节扭住绑匪C的手腕将其按倒在地。动作干净利落，毫无声响。",
+      "estimated_seconds": 25
+    },
+    {
+      "scene_id": 3,
+      "location": "B2停车场角落",
+      "time": "深夜",
+      "weather": "无",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "伸出手",
+          "emotion": "沉静温和"
+        },
+        {
+          "name": "林婉儿",
+          "action": "抬头看向陈默",
+          "emotion": "惊魂未定转为惊讶"
+        }
+      ],
+      "dialogue": [],
+      "camera": "中景切特写，拉全景",
+      "mood": "宿命感、救赎",
+      "description": "三个绑匪瘫倒在地。林婉儿跌坐在地，胸口剧烈起伏，惊恐地抬起头。陈默站在她面前，微微弯腰，向她伸出宽大的手掌。头顶的感应灯适时亮起，柔和的光线洒在两人身上。两人四目相对，视线紧紧锁定。",
+      "estimated_seconds": 20
+    }
+  ],
+  "shots": [
+    {
+      "shot_id": 1,
+      "scene_id": 1,
+      "duration": 10,
+      "location": "B2停车场",
+      "time": "深夜",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "巡逻",
+          "emotion": "警觉"
+        },
+        {
+          "name": "绑匪A",
+          "action": "控制林婉儿",
+          "emotion": "粗暴"
+        },
+        {
+          "name": "绑匪B",
+          "action": "控制林婉儿",
+          "emotion": "紧张"
+        },
+        {
+          "name": "绑匪C",
+          "action": "控制林婉儿",
+          "emotion": "紧张"
+        },
+        {
+          "name": "林婉儿",
+          "action": "挣扎",
+          "emotion": "恐惧"
+        }
+      ],
+      "camera": "全景推至中景",
+      "mood": "压抑、悬疑",
+      "description": "昏暗的B2停车场，只有应急灯泛着惨红的光。陈默身穿保安制服独自巡逻，寸头下的眼神沉静警觉。镜头推向角落，三个黑衣蒙面绑匪正捂住一名女子的嘴，女子拼命挣扎。",
+      "dialogue": []
+    },
+    {
+      "shot_id": 2,
+      "scene_id": 2,
+      "duration": 10,
+      "location": "B2停车场角落",
+      "time": "深夜",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "潜行、出招制服",
+          "emotion": "冷静果断"
+        },
+        {
+          "name": "绑匪A",
+          "action": "被击倒",
+          "emotion": "惊愕"
+        },
+        {
+          "name": "绑匪B",
+          "action": "被踢飞",
+          "emotion": "痛苦"
+        },
+        {
+          "name": "绑匪C",
+          "action": "被反关节按倒",
+          "emotion": "痛苦"
+        }
+      ],
+      "camera": "移镜头，近景，特写",
+      "mood": "紧张、凌厉",
+      "description": "陈默压低身体，悄无声息地贴近。镜头快速切换：陈默一记手刀劈晕绑匪A，转身一脚踢飞绑匪B，最后反关节扭住绑匪C的手腕将其按倒在地。动作干净利落，毫无声响。",
+      "dialogue": []
+    },
+    {
+      "shot_id": 3,
+      "scene_id": 3,
+      "duration": 10,
+      "location": "B2停车场角落",
+      "time": "深夜",
+      "characters": [
+        {
+          "name": "陈默",
+          "action": "伸出手",
+          "emotion": "沉静温和"
+        },
+        {
+          "name": "林婉儿",
+          "action": "抬头看向陈默",
+          "emotion": "惊魂未定转为惊讶"
+        }
+      ],
+      "camera": "中景切特写，拉全景",
+      "mood": "宿命感、救赎",
+      "description": "三个绑匪瘫倒在地。林婉儿跌坐在地，胸口剧烈起伏，惊恐地抬起头。陈默站在她面前，微微弯腰，向她伸出宽大的手掌。头顶的感应灯适时亮起，柔和的光线洒在两人身上。两人四目相对，视线紧紧锁定。",
+      "dialogue": []
+    }
+  ],
+  "shot_count": 3
+}

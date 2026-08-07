@@ -1,6 +1,8 @@
 """四阶段流水线服务 - 含时长估算、分镜拆分、全局设定注入"""
 import os
 import json
+import glob
+import base64
 from .script_generator import ScriptGenerator
 from .prompt_generator import PromptGenerator
 from .llm_client import LLMClient
@@ -34,7 +36,7 @@ class PipelineService:
         """根据阶段获取独立配置的 LLM 客户端"""
         from web.models.database import Provider, ProjectConfig
 
-        provider_key = "glm"
+        provider_key = os.environ.get("AI_DIRECTOR_DEFAULT_PROVIDER", "glm")
         api_key = ""
         model = None
         temperature = 0.7
@@ -91,6 +93,26 @@ class PipelineService:
         if custom:
             parts.append(f"\n自定义指令：\n{custom}")
         return "\n".join(parts)
+
+    def _build_consistency_lock_map(self, project_id=None):
+        """构建角色一致性锁映射：{角色名: 锁定注入的视觉描述}。仅含开启锁且描述非空者。"""
+        if not project_id:
+            return {}
+        try:
+            from web.models.novel_models import NovelCharacter
+            chars = NovelCharacter.query.filter_by(project_id=project_id).all()
+            lock_map = {}
+            for c in chars:
+                if getattr(c, "consistency_lock", False):
+                    lp = (c.locked_prompt or "").strip()
+                    if not lp:
+                        # 未手动填锁定描述时，用外貌+视觉提示词自动合成
+                        lp = "；".join([x for x in [c.appearance, c.visual_prompt] if x and x.strip()])
+                    if lp:
+                        lock_map[c.name] = lp
+            return lock_map
+        except Exception:
+            return {}
 
     def _build_globals_context(self, project_id=None):
         """构建全局设定上下文字符串，含角色视觉档案"""
@@ -222,6 +244,10 @@ class PipelineService:
         if not project_id:
             project_id = chapter.project_id if chapter else (novel_ch.project_id if novel_ch else None)
 
+        # 早期守卫：空/纯空白小说不应浪费一次 LLM 调用，直接清晰报错
+        if not novel_text or not novel_text.strip():
+            raise ValueError("小说内容为空，无法生成剧本。请先填写章节正文后再试。")
+
         # 构建全局设定上下文
         globals_ctx = self._build_globals_context(project_id)
         custom_prompt = self._get_stage_prompt("novel2script", project_id)
@@ -236,6 +262,15 @@ class PipelineService:
 
         # 传入全局设定和自定义 prompt
         script_data = generator.generate(novel_text, chapter_title, globals_ctx, custom_prompt)
+
+        # 防御：大模型可能返回非 JSON / 截断 / 空结构（如小说过长触发 max_tokens 截断）。
+        # 此时 chat_json 会回退为 {"raw": ...}，必须显式报错，避免静默写出 0 镜头的空剧本。
+        if not isinstance(script_data, dict) or not script_data.get("scenes"):
+            raw_preview = (script_data.get("raw", "") if isinstance(script_data, dict) else str(script_data))[:120]
+            raise ValueError(
+                "大模型未返回有效的结构化剧本（可能为截断/非 JSON/空结构）。"
+                f"请检查网络与模型配额，或精简本章小说后重试。原始片段：{raw_preview}"
+            )
 
         if progress:
             progress.update(progress=60, message="正在拆分分镜头（10-15秒）...", logs="拆分镜头")
@@ -293,6 +328,26 @@ class PipelineService:
 
         proj_id = chapter.project_id if chapter else kwargs.get("project_id")
 
+        # 从剧本 JSON 抽取每个分镜出现的角色（按 shot_id 索引），用于注入一致性锁
+        shot_characters = {}
+        shot_locations = {}
+        for sh in script_data.get("shots", []):
+            sid = sh.get("shot_id")
+            names = []
+            for c in sh.get("characters", []) or []:
+                if isinstance(c, dict) and c.get("name"):
+                    names.append(c["name"])
+                elif isinstance(c, str):
+                    names.append(c)
+            if sid is not None:
+                shot_characters[sid] = names
+                loc = (sh.get("location") or "").strip()
+                if loc:
+                    shot_locations[sid] = loc
+
+        # 构建「角色一致性锁」映射：开启锁且锁定描述非空的角色 → 注入字符串
+        locked_map = self._build_consistency_lock_map(proj_id)
+
         # 构建全局设定上下文
         globals_ctx = self._build_globals_context(proj_id)
         custom_prompt = self._get_stage_prompt("gen_prompts", proj_id)
@@ -337,6 +392,30 @@ class PipelineService:
             if gs.get("negative_prompts") and "negative_prompt" in shot:
                 shot["negative_prompt"] = shot["negative_prompt"] + ", " + gs["negative_prompts"]
 
+            # 注入「角色一致性锁」：把锁定角色的外观描述强制写入该分镜视频提示词，防变脸
+            shot_chars = shot_characters.get(shot_id, [])
+            locked_chars = []
+            if locked_map and shot_chars:
+                vp = shot.get("video_prompt", "")
+                for name in shot_chars:
+                    lp = locked_map.get(name)
+                    if not lp:
+                        continue
+                    tag = f"【角色一致性锁定·{name}】{lp}"
+                    # 幂等：若该角色锁描述已存在则不重复追加
+                    if tag not in vp:
+                        vp = (vp + "，" + tag) if vp else tag
+                        locked_chars.append(name)
+                if locked_chars:
+                    shot["video_prompt"] = vp
+            # 把出场角色与已锁定角色落盘，供分镜画布反查与显示锁徽章
+            shot["characters"] = shot_chars
+            loc = shot_locations.get(shot_id)
+            if loc:
+                shot["location"] = loc
+            if locked_chars:
+                shot["locked_characters"] = locked_chars
+
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(shot, f, ensure_ascii=False, indent=2)
             saved_files.append(filename)
@@ -346,17 +425,237 @@ class PipelineService:
 
         return {"shots": len(shots), "files": saved_files}
 
+    def _resolve_project_name(self, project_id, project_name):
+        """根据 project_id 反查项目名（project_name 缺失时）"""
+        if project_name:
+            return project_name
+        if project_id:
+            try:
+                from web.models.database import ProjectModel
+                p = ProjectModel.query.get(project_id)
+                if p:
+                    return p.name
+            except Exception:
+                pass
+        return None
+
+    def _get_image_client(self):
+        """取图片生成客户端：优先火山引擎（含 seedream 模型的 provider）"""
+        from web.models.database import Provider
+        # 默认服务商
+        default_key = os.environ.get("AI_DIRECTOR_DEFAULT_PROVIDER", "volcengine")
+        # 优先找带 seedream 图片模型的 provider（注意：仅匹配 seedream，避免误匹配 doubao-seed 文本模型）
+        target = None
+        for key in (default_key, "volcengine"):
+            p = Provider.query.get(key)
+            if p and p.api_key and any("seedream" in m.lower() for m in p.get_models()):
+                target = p
+                break
+        if not target:
+            return None, None
+        image_models = [m for m in target.get_models() if "seedream" in m.lower()]
+        if not image_models:
+            return None, None  # 没有 seedream 模型时不硬调文本模型，交由占位逻辑处理
+        model = image_models[0]
+        from .image_client import ImageClient
+        return ImageClient(api_key=target.api_key, model=model), model
+
     def draw_images(self, progress=None, **kwargs):
-        """阶段三：Prompt → 图片（当前为占位图）"""
+        """阶段三：Prompt → 图片（火山引擎 Seedream 真实生成；离线/无 Key 自动占位）"""
+        from web.models.database import Provider
+
+        project_name = self._resolve_project_name(kwargs.get("project_id"), kwargs.get("project_name"))
+        if not project_name:
+            return {"status": "error", "message": "无法确定项目，无法生成图片"}
+        proj_path = self._get_project_path(project_name)
+        prompt_dir = os.path.join(proj_path, "07_Prompt")
+        image_dir = os.path.join(proj_path, "08_Image")
+        os.makedirs(image_dir, exist_ok=True)
+
+        prompt_files = sorted(glob.glob(os.path.join(prompt_dir, "*_prompt_*.json")))
+        if not prompt_files:
+            if progress:
+                progress.update(progress=100, message="无提示词文件，跳过图片生成", logs="无提示词")
+            return {"status": "skipped", "message": "07_Prompt 下无提示词文件"}
+
+        client, model = self._get_image_client()
+        results = []
+        total = len(prompt_files)
+        for i, pf in enumerate(prompt_files):
+            try:
+                with open(pf, "r", encoding="utf-8") as f:
+                    shot = json.load(f)
+            except Exception:
+                shot = {}
+            prompt = shot.get("video_prompt", "")
+            neg = shot.get("negative_prompt", "")
+            base = os.path.splitext(os.path.basename(pf))[0]
+            img_path = os.path.join(image_dir, base + ".png")
+
+            if progress:
+                progress.update(progress=int(15 + 75 * i / total),
+                                message=f"生成第 {i+1}/{total} 张图 [{model or '占位'}]",
+                                logs=f"Seedream: {model}")
+
+            gen = client.generate(prompt, neg) if client else None
+            if isinstance(gen, list) and gen and gen[0] and client.save_b64(gen[0], img_path):
+                results.append(img_path)
+            elif isinstance(gen, str) and gen.startswith("[图片生成失败"):
+                # 真实调用失败：写占位图并附带错误说明
+                self._write_placeholder(img_path, f"生成失败: {gen}")
+                results.append(img_path)
+            else:
+                # 离线或无 Key：占位图
+                self._write_placeholder(img_path, prompt[:120] or "离线占位图")
+                results.append(img_path)
+
         if progress:
-            progress.update(progress=50, message="图片生成（ComfyUI 未接入，使用占位图）", logs="占位图模式")
-        return {"status": "placeholder", "message": "ComfyUI 未接入，当前生成占位图"}
+            progress.update(progress=100,
+                            message=f"图片生成完成：{len(results)} 张（模型 {model or '占位'}）", logs="完成")
+        return {"status": "ok", "model": model, "count": len(results), "images": results}
+
+    def _write_placeholder(self, filepath, text):
+        """生成一张带文字的占位 PNG（离线/失败时使用）"""
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            img = Image.new("RGB", (512, 512), (28, 28, 36))
+            draw = ImageDraw.Draw(img)
+            try:
+                font = ImageFont.load_default()
+            except Exception:
+                font = None
+            # 简单换行绘制
+            lines = []
+            for seg in (text or "").split(", "):
+                lines.append(seg)
+            y = 20
+            for line in lines[:18]:
+                draw.text((16, y), line[:40], fill=(200, 200, 210), font=font)
+                y += 26
+            img.save(filepath)
+        except Exception:
+            # 极端兜底：纯色块
+            try:
+                from PIL import Image
+                Image.new("RGB", (256, 256), (40, 40, 50)).save(filepath)
+            except Exception:
+                pass
 
     def render_videos(self, progress=None, **kwargs):
-        """阶段四：图片 → 视频（moviepy 合成）"""
-        if progress:
-            progress.update(progress=50, message="视频渲染（moviepy 合成）", logs="视频合成中")
-        return {"status": "placeholder", "message": "视频合成功能开发中"}
+        """阶段四：图片 → 视频（本地 moviepy 合成，无需视频生成 API）。
+
+        同时把「角色一致性锁」强制注入每镜视频合成提示词（与图像阶段一致），
+        防止后续接 I2V 模型时角色变脸；并输出 video_consistency.json 侧车供人工核对。
+        """
+        project_name = self._resolve_project_name(kwargs.get("project_id"), kwargs.get("project_name"))
+        if not project_name:
+            return {"status": "error", "message": "无法确定项目，无法合成视频"}
+        proj_path = self._get_project_path(project_name)
+        prompt_dir = os.path.join(proj_path, "07_Prompt")
+        image_dir = os.path.join(proj_path, "08_Image")
+        video_dir = os.path.join(proj_path, "09_Video")
+        os.makedirs(video_dir, exist_ok=True)
+
+        prompt_files = sorted(glob.glob(os.path.join(prompt_dir, "*_prompt_*.json")))
+        if not prompt_files:
+            if progress:
+                progress.update(progress=100, message="07_Prompt 无提示词，跳过视频合成", logs="无提示词")
+            return {"status": "skipped", "message": "07_Prompt 下无提示词文件"}
+
+        # 一致性锁映射（防变脸，视频阶段同样强制注入）
+        locked_map = self._build_consistency_lock_map(kwargs.get("project_id"))
+
+        # 收集图片（按文件名 stem 关联提示词）
+        images_by_stem = {}
+        for ext in ("*.png", "*.jpg"):
+            for p in glob.glob(os.path.join(image_dir, ext)):
+                images_by_stem[os.path.splitext(os.path.basename(p))[0]] = p
+        if not images_by_stem:
+            if progress:
+                progress.update(progress=100, message="08_Image 无图片，跳过视频合成", logs="无图片")
+            return {"status": "skipped", "message": "08_Image 下无图片"}
+
+        try:
+            # 兼容 moviepy v1 / v2 的导入方式
+            try:
+                from moviepy.editor import ImageClip, concatenate_videoclips
+            except Exception:
+                from moviepy import ImageClip, concatenate_videoclips
+
+            clips = []
+            consistency = {}  # shot_stem -> {shot_id, duration, locked_characters, video_prompt}
+            total = len(prompt_files)
+            for i, pf in enumerate(prompt_files):
+                stem = os.path.splitext(os.path.basename(pf))[0]
+                img = images_by_stem.get(stem)
+                if not img:
+                    continue
+                try:
+                    with open(pf, "r", encoding="utf-8") as f:
+                        shot = json.load(f)
+                except Exception:
+                    shot = {}
+
+                # 时长：优先用分镜 duration，兜底 3 秒
+                try:
+                    dur = float(shot.get("duration") or 3)
+                except Exception:
+                    dur = 3.0
+                dur = max(1.0, min(15.0, dur))
+
+                # 视频合成提示词（I2V 用）：把一致性锁强注入，防变脸
+                vp = shot.get("video_prompt", "")
+                shot_chars = shot.get("characters", []) or []
+                locked_chars = []
+                if locked_map and shot_chars:
+                    for name in shot_chars:
+                        lp = locked_map.get(name)
+                        if not lp:
+                            continue
+                        tag = f"【角色一致性锁定·{name}】{lp}"
+                        if tag not in vp:
+                            vp = (vp + "，" + tag) if vp else tag
+                        locked_chars.append(name)
+                consistency[stem] = {
+                    "shot_id": shot.get("shot_id"),
+                    "duration": dur,
+                    "locked_characters": locked_chars,
+                    "video_prompt": vp,
+                }
+
+                if progress:
+                    progress.update(progress=int(20 + 70 * i / total),
+                                    message=f"合成第 {i + 1}/{total} 镜（锁:{len(locked_chars)}）...",
+                                    logs="moviepy 合成")
+                clips.append(ImageClip(img).with_duration(dur))
+
+            if not clips:
+                return {"status": "skipped", "message": "没有可合成的镜头"}
+
+            video = concatenate_videoclips(clips, method="compose")
+            out = os.path.join(video_dir, f"{project_name}_preview.mp4")
+            video.write_videofile(out, fps=24, codec="libx264", audio=False)
+
+            # 侧车：视频阶段一致性锁报告，供 I2V 与人工核对
+            sidecar = os.path.join(video_dir, "video_consistency.json")
+            with open(sidecar, "w", encoding="utf-8") as f:
+                json.dump({
+                    "video": os.path.basename(out),
+                    "shots": consistency,
+                    "locked_shot_count": sum(1 for v in consistency.values() if v["locked_characters"]),
+                }, f, ensure_ascii=False, indent=2)
+
+            locked_n = sum(1 for v in consistency.values() if v["locked_characters"])
+            if progress:
+                progress.update(progress=100,
+                                message=f"视频合成完成：{out}（{len(clips)} 镜，{locked_n} 镜带锁）", logs="完成")
+            return {"status": "ok", "video": out, "count": len(clips),
+                    "locked_shot_count": locked_n, "consistency_file": sidecar}
+        except Exception as e:
+            if progress:
+                progress.update(progress=100,
+                                message=f"视频合成跳过（缺少 moviepy/ffmpeg）：{str(e)[:60]}", logs="合成跳过")
+            return {"status": "skipped", "message": f"视频合成不可用: {str(e)}"}
 
     def run_all(self, project_name=None, chapter_id=None, progress=None, **kwargs):
         """一键全流程"""

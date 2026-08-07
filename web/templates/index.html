@@ -230,6 +230,100 @@ a{color:var(--purple);text-decoration:none}
 .workflow-step.completed { border-color: var(--green); }
 .workflow-step.completed .workflow-step__icon { opacity: 1; }
 .workflow-step.active { border-color: var(--purple); background: var(--purple-dim); }
+
+/* ── 分镜画布（提示词 ↔ 静帧 联动） ── */
+.sb-toolbar{display:flex;align-items:center;gap:12px}
+.sb-canvas{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-top:6px}
+.sb-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;cursor:pointer;transition:all .18s}
+.sb-card:hover{transform:translateY(-3px);border-color:var(--purple);box-shadow:0 8px 24px var(--purple-glow)}
+.sb-still{position:relative;aspect-ratio:16/9;background:var(--bg4);overflow:hidden}
+.sb-still img{width:100%;height:100%;object-fit:cover;display:block}
+.sb-still__empty{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:var(--t3);font-size:1.4rem}
+.sb-still__empty span{font-size:.72rem}
+.sb-card__body{padding:12px 14px}
+.sb-card__head{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sb-shot-label{font-weight:600;font-size:.82rem;color:var(--purple)}
+.sb-dur{font-size:.7rem;color:var(--t2);background:var(--bg4);padding:1px 7px;border-radius:10px}
+.sb-ok{margin-left:auto;font-size:.68rem;color:var(--green)}
+.sb-no{margin-left:auto;font-size:.68rem;color:var(--t3)}
+.sb-prompt-sum{font-size:.78rem;color:var(--t2);line-height:1.5;margin-bottom:10px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.sb-chips{display:flex;flex-wrap:wrap;gap:6px}
+.asset-chip{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;padding:2px 8px;border-radius:20px;border:1px solid var(--border2);background:var(--bg4);color:var(--t2);white-space:nowrap}
+.asset-chip--blue{color:var(--blue);border-color:var(--blue);background:var(--blue-dim)}
+.asset-chip--amber{color:var(--amber);border-color:var(--amber);background:var(--amber-dim)}
+.asset-chip--purple{color:var(--purple);border-color:var(--purple);background:var(--purple-dim)}
+.asset-chip--rose{color:var(--rose);border-color:var(--rose);background:var(--rose-dim)}
+.asset-chip--green{color:var(--green);border-color:var(--green);background:var(--green-dim)}
+.asset-chip--cyan{color:var(--cyan);border-color:var(--cyan);background:var(--cyan-dim)}
+.asset-chip--more{color:var(--t3);border-style:dashed}
+.char-chip{display:inline-flex;align-items:center;gap:2px;font-size:.68rem;padding:2px 8px;border-radius:20px;border:1px solid var(--border2);background:var(--bg4);color:var(--t2);white-space:nowrap}
+.char-chip--locked{color:var(--green);border-color:var(--green);background:var(--green-dim);font-weight:600}
+
+/* ── 分镜详情弹窗 ── */
+.sb-overlay{position:fixed;inset:0;background:rgba(8,8,12,.82);backdrop-filter:blur(4px);z-index:1000;display:flex;align-items:center;justify-content:center;padding:24px;animation:fade .2s ease}
+.sb-modal{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r2);max-width:1000px;width:100%;max-height:90vh;display:flex;overflow:hidden;position:relative}
+.sb-modal__close{position:absolute;top:10px;right:12px;width:30px;height:30px;border-radius:50%;background:var(--bg4);color:var(--t1);font-size:.9rem;z-index:2}
+.sb-modal__close:hover{background:var(--rose);color:#fff}
+.sb-modal__imgwrap{flex:1.2;min-width:0;background:#000;display:flex;align-items:center;justify-content:center}
+.sb-modal__img{max-width:100%;max-height:90vh;object-fit:contain;display:block}
+.sb-modal__img--empty{flex:1.2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--t3);font-size:1.6rem}
+.sb-modal__side{flex:1;min-width:300px;max-width:420px;padding:22px;overflow-y:auto}
+.sb-modal__title{font-size:1rem;font-weight:600;margin-bottom:14px;color:var(--t1)}
+.sb-field{margin-bottom:12px}
+.sb-field__k{display:block;font-size:.68rem;color:var(--t3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.sb-field__v{font-size:.8rem;line-height:1.6;color:var(--t1);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;word-break:break-all}
+.sb-field__v--neg{color:var(--rose)}
+.sb-field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sb-refpanel{margin-top:16px;border-top:1px solid var(--border);padding-top:14px}
+.sb-refpanel__title{font-size:.82rem;font-weight:600;margin-bottom:10px;color:var(--blue)}
+.sb-reflist{display:flex;flex-direction:column;gap:10px}
+.sb-ref{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px}
+.sb-ref__meta{font-size:.7rem;margin:6px 0 4px}
+.sb-ref__meta code{background:var(--bg4);padding:1px 6px;border-radius:4px;color:var(--amber);font-family:var(--mono)}
+.sb-ref__desc{font-size:.74rem;color:var(--t2);line-height:1.5}
+
+/* ── 全局资产可视化 ── */
+.gasset-card--blue{border-left:3px solid var(--blue)}
+.gasset-card--amber{border-left:3px solid var(--amber)}
+.gasset-card--purple{border-left:3px solid var(--purple)}
+.gasset-card--rose{border-left:3px solid var(--rose)}
+.gasset-card--green{border-left:3px solid var(--green)}
+.gasset-card--cyan{border-left:3px solid var(--cyan)}
+.gasset-tag{font-size:.62rem;padding:1px 6px;border-radius:4px;border:1px solid var(--border2)}
+.gasset-tag--blue{color:var(--blue);border-color:var(--blue);background:var(--blue-dim)}
+.gasset-tag--amber{color:var(--amber);border-color:var(--amber);background:var(--amber-dim)}
+.gasset-tag--purple{color:var(--purple);border-color:var(--purple);background:var(--purple-dim)}
+.gasset-tag--rose{color:var(--rose);border-color:var(--rose);background:var(--rose-dim)}
+.gasset-tag--green{color:var(--green);border-color:var(--green);background:var(--green-dim)}
+.gasset-tag--cyan{color:var(--cyan);border-color:var(--cyan);background:var(--cyan-dim)}
+.asset-card__desc{font-size:.68rem;color:var(--t3);margin-top:6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* ──── 剧本诊断 ──── */
+.doc-top{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:4px}
+.doc-ring{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;padding:16px 22px}
+.doc-ring__grade{font-weight:700;font-size:1rem;margin-top:4px}
+.doc-actions{flex:1 1 320px;padding:16px}
+.doc-ai{border-top:1px dashed var(--border);padding-top:10px}
+.doc-ai__title{font-weight:600;margin-bottom:6px;color:var(--purple)}
+.doc-ai__body{font-size:.85rem;line-height:1.75;color:var(--t2);white-space:normal}
+.doc-cat__head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.doc-cat__title{font-weight:600;font-size:.95rem}
+.doc-cat__score{font-size:1.5rem;font-weight:700;line-height:1}
+.doc-cat__scoreu{font-size:.7rem;font-weight:400;color:var(--t3);margin-left:2px}
+.doc-bar{height:7px;background:var(--bg);border-radius:6px;overflow:hidden;margin-bottom:10px}
+.doc-bar__fill{height:100%;border-radius:6px;transition:width .5s}
+.doc-metrics{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:10px}
+.doc-metric{font-size:.72rem;color:var(--t3)}
+.doc-metric b{color:var(--t2);font-size:.86rem;margin-right:3px}
+.doc-issue-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.doc-issue{border-left:3px solid var(--border);padding:6px 10px;background:var(--bg);border-radius:0 8px 8px 0;font-size:.82rem;line-height:1.55}
+.doc-issue[data-jump]:hover{background:var(--surface-hover,#22262e);box-shadow:inset 0 0 0 1px var(--border)}
+.doc-issue__go{float:right;color:var(--purple);font-size:.74rem;font-weight:600;text-decoration:underline;margin-left:8px}
+.doc-issue__sev{font-weight:600;margin-right:6px;font-size:.76rem}
+.doc-issue__txt{color:var(--t2)}
+.doc-issue__fix{display:block;margin-top:3px;color:var(--t3);font-size:.76rem}
+
 </style>
 </head>
 <body>
@@ -245,7 +339,13 @@ async function api(path, opts = {}) {
   const config = { headers: { 'Content-Type': 'application/json' }, ...opts };
   if (config.body && typeof config.body === 'object') config.body = JSON.stringify(config.body);
   const res = await fetch(url, config);
-  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || res.statusText); }
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    const err = new Error(body.error || res.statusText);
+    err.data = body;
+    err.status = res.status;
+    throw err;
+  }
   return res.json();
 }
 
@@ -269,7 +369,12 @@ const S = {
   novelChapters: [],
   novelCurrentChapter: null,
   novelScenes: [],
-};;
+};
+
+// 字幕模块前端状态
+let subSegments = [];   // [{start,end,text}]
+let subFonts = [];      // [{name,path}]
+let subVideo = null;    // 当前选中的 09_Video 文件名
 
 /* ═══════════ RENDER ENGINE ═══════════ */
 function h(tag, attrs, ...children) {
@@ -700,14 +805,20 @@ function renderGlobalAssetList(category) {
     return;
   }
   ac.innerHTML = `<div class="asset-grid">${items.map(a => `
-    <div class="asset-card fade-up" style="cursor:pointer" data-cat="${a.category}" data-file="${a.filename}">
+    <div class="asset-card fade-up gasset-card gasset-card--${catColor(a.category)}" style="cursor:pointer" data-cat="${a.category}" data-file="${a.filename}">
       <div class="asset-card__image" style="font-size:1.5rem">${getCategoryIcon(a.category)}</div>
       <div class="asset-card__body">
         <div class="asset-card__name">${esc(a.name)}</div>
-        <div class="asset-card__meta"><span>${esc(a.category)}</span><span class="asset-card__prompt-tag">可用</span></div>
+        <div class="asset-card__meta"><span class="gasset-tag gasset-tag--${catColor(a.category)}">${esc(a.category)}</span><span class="asset-card__prompt-tag">可用</span></div>
+        ${a.description ? `<div class="asset-card__desc">${esc(a.description)}</div>` : ''}
       </div>
     </div>
   `).join('')}</div>`;
+}
+
+function catColor(cat) {
+  const m = { Camera: 'blue', Transition: 'cyan', Emotion: 'rose', Lighting: 'amber', Style: 'purple', Action: 'green' };
+  return m[cat] || 'purple';
 }
 
 function getCategoryIcon(cat) {
@@ -951,11 +1062,15 @@ const NOVEL_STAGES = [
   // === 第二阶段：剧本+分镜 ===
   { key: 'script', icon: '📝', title: '剧本生成', desc: '小说→结构化剧本', group: 'script' },
   { key: 'storyboard', icon: '🎞', title: '分镜提示词', desc: '剧本→电影级分镜Prompt', group: 'script' },
+  { key: 'entities', icon: '🔗', title: '实体图谱', desc: '角色/场景自动派生·互链', group: 'script' },
+  { key: 'doctor', icon: '🩺', title: '剧本诊断', desc: '生成前结构/人物/节奏体检', group: 'script' },
   // === 第三阶段：资产 ===
   { key: 'assets', icon: '🎨', title: '资产提示词', desc: '从剧本提取角色/场景/道具提示词', group: 'assets' },
   { key: 'asset-images', icon: '🖼', title: '资产图管理', desc: '生成或导入资产参考图', group: 'assets' },
   // === 第四阶段：打包 ===
   { key: 'package', icon: '📦', title: '打包导出', desc: '分镜提示词+最终版资产图→豆包', group: 'package' },
+  // === 第五阶段：视频成片 ===
+  { key: 'subtitle', icon: '💬', title: '视频字幕', desc: '语音识别+手动确认+烧录字幕', group: 'video' },
   { key: 'globals', icon: '⚙', title: '项目全局设定', desc: '音色/色彩/画风/提示词', group: 'settings' },
 ];
 
@@ -965,6 +1080,7 @@ function renderNovelHome(c) {
     { key: 'script', label: '第二阶段 · 剧本+分镜', color: 'var(--blue)' },
     { key: 'assets', label: '第三阶段 · 资产管理', color: 'var(--amber)' },
     { key: 'package', label: '第四阶段 · 打包导出', color: 'var(--green)' },
+    { key: 'video', label: '第五阶段 · 视频成片', color: '#d97757' },
   ];
   c.innerHTML = `
     <!-- 快速开始引导 -->
@@ -1035,6 +1151,7 @@ function renderNovelProject(c) {
     { key: 'script', label: '剧本分镜', color: 'var(--blue)' },
     { key: 'assets', label: '资产管理', color: 'var(--amber)' },
     { key: 'package', label: '打包导出', color: 'var(--green)' },
+    { key: 'video', label: '视频成片', color: '#d97757' },
     { key: 'settings', label: '项目设定', color: 'var(--t2)' },
   ];
 
@@ -1076,9 +1193,12 @@ function renderNovelProject(c) {
     case 'chapters': renderNovelChapters(nc); break;
     case 'script': renderNovelScript(nc); break;
     case 'storyboard': renderNovelStoryboard(nc); break;
+    case 'entities': renderEntityGraph(nc); break;
+    case 'doctor': renderScriptDoctor(nc); break;
     case 'assets': renderNovelAssetPrompts(nc); break;
     case 'asset-images': renderNovelAssetImages(nc); break;
     case 'package': renderNovelPackage(nc); break;
+    case 'subtitle': renderSubtitleStage(nc); break;
     case 'globals': renderNovelGlobals(nc); break;
   }
 }
@@ -1204,6 +1324,14 @@ function showEditCharModal(charId) {
     <div class="form-group"><label>人物关系</label><textarea id="cRelationships">${esc(ch?.relationships||'')}</textarea></div>
     <div class="form-group"><label>人物弧光</label><textarea id="cArc">${esc(ch?.arc||'')}</textarea></div>
     <div class="form-group"><label>经典台词</label><textarea id="cQuotes">${esc(ch?.key_quotes||'')}</textarea></div>
+    <div class="card" style="background:var(--bg2);border-left:3px solid var(--green)">
+      <div class="section-title mb-2">🔒 角色一致性锁（防变脸）</div>
+      <div class="form-group" style="flex-direction:row;align-items:center;gap:8px">
+        <input type="checkbox" id="cLock" ${ch?.consistency_lock ? 'checked' : ''} style="width:auto">
+        <label style="margin:0">开启后，下方锁定描述会被强制注入该角色出现的每一帧提示词</label>
+      </div>
+      <div class="form-group"><label>锁定视觉描述（留空则自动用「外貌+视觉提示词」合成）</label><textarea id="cLocked" placeholder="如：身穿保安制服，寸头，眼神沉静而警觉，身手矫健">${esc(ch?.locked_prompt||'')}</textarea></div>
+    </div>
   `, async () => {
     const data = {
       name: document.getElementById('cName').value,
@@ -1218,6 +1346,8 @@ function showEditCharModal(charId) {
       relationships: document.getElementById('cRelationships').value,
       arc: document.getElementById('cArc').value,
       key_quotes: document.getElementById('cQuotes').value,
+      consistency_lock: document.getElementById('cLock').checked,
+      locked_prompt: document.getElementById('cLocked').value,
     };
     if (!data.name) { toast('请输入角色名'); return; }
     if (charId) {
@@ -1386,9 +1516,11 @@ function renderNovelChapters(c) {
     <div class="section-header"><div class="section-title">📖 章节列表</div>
       <div class="flex gap-2">
         <button class="btn btn--green btn--sm" id="btnAIChapter">🤖 AI 生成概要</button>
+        <button class="btn btn--amber btn--sm" id="btnScanNovel">📥 扫描导入</button>
         <button class="btn btn--primary btn--sm" id="btnAddChapter">＋ 新建章节</button>
       </div>
     </div>
+    <div class="text-xs text-muted mb-2">把小说 .txt/.md 放进 <code>02_Projects/{项目名}/04_Story/</code>，点「扫描导入」即可按标题自动拆分建章</div>
     <div id="novelChapterList"></div>
   `;
 
@@ -1423,6 +1555,15 @@ function renderNovelChapters(c) {
   }
 
   document.getElementById('btnAddChapter').onclick = () => showAddNovelChapterModal();
+  const bs = document.getElementById('btnScanNovel');
+  if (bs) bs.onclick = async () => {
+    toast('正在扫描 04_Story 目录...');
+    try {
+      const r = await api(`/import/${S.novelProject.id}/scan-novels`, { method: 'POST', body: {} });
+      toast(r.message || '导入完成');
+    } catch (e) { toast('扫描失败：' + (e.message || e)); }
+    loadNovelChapters();
+  };
   document.getElementById('btnAIChapter').onclick = async () => {
     const num = S.novelChapters.length + 1;
     toast('AI 正在生成章节概要...');
@@ -1711,6 +1852,126 @@ async function saveAsVersion(assetType, assetKey, content, projectId, notes) {
 
 /* ═══════════ ASSET PACKAGING MODULE ═══════════ */
 
+// 选择最终版素材的单选 name
+function _pkgCssEsc(s) { return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g, '\\$&'); }
+
+// 渲染打包分析结果：缺失提醒 + 多版本确认
+function buildPackageAnalyzeHTML(r) {
+  const hardMissing = r.missing_count > 0;
+  const nc = r.need_confirm_count || 0;
+  const mr = r.missing_ref_count || 0;
+  let html = `<div class="card mb-4">
+    <div class="section-title mb-2">📊 分析结果</div>
+    <div class="flex gap-4 mb-3 flex-wrap">
+      <span class="badge badge--blue" style="padding:6px 12px">📁 可打包文件 ${r.total_files || 0}</span>
+      <span class="badge badge--${nc ? 'amber' : 'green'}" style="padding:6px 12px">🔁 需确认 ${nc}</span>
+      <span class="badge badge--${mr ? 'rose' : 'green'}" style="padding:6px 12px">⚠️ 缺失参考 ${mr}</span>
+    </div>`;
+  if (hardMissing) {
+    html += `<div class="mb-3" style="border-left:3px solid var(--rose);background:color-mix(in srgb,var(--rose) 12%,transparent);padding:10px 12px;border-radius:6px">
+      ⛔ <strong>确实没有任何素材可打包</strong>。请先将资产图/视频放入 <code>02_Projects/{项目名}/08_Image/</code> 或 <code>09_Video/</code> 目录。</div>`;
+  }
+  if (nc > 0) {
+    html += `<div class="mb-3" style="border-left:3px solid var(--amber);background:color-mix(in srgb,var(--amber) 12%,transparent);padding:10px 12px;border-radius:6px">
+      🔁 有 <strong>${nc}</strong> 项素材存在多个版本，请逐项选择「最终版」后再导出。</div>`;
+  }
+  if (mr > 0) {
+    const names = r.assets.filter(a => a.status === 'missing' && a.type === 'ref_missing').map(a => a.search_names[0]);
+    html += `<div class="mb-3" style="border-left:3px solid var(--amber);background:color-mix(in srgb,var(--amber) 12%,transparent);padding:10px 12px;border-radius:6px">
+      ⚠️ <strong>确实缺失</strong>以下角色/场景参考图（不影响已有素材打包，建议到「资产管理」导入参考图以保证一致性）：<br><span class="text-sm">${esc(names.join('、'))}</span></div>`;
+  }
+  html += `<div class="section-title" style="font-size:.82rem;margin-bottom:8px">素材清单（多项版本请单选最终版）</div>`;
+  const packable = r.assets.filter(a => a.type !== 'ref_missing');
+  if (!packable.length) {
+    html += `<div class="text-muted text-sm">无任何图片/视频素材。</div>`;
+  }
+  for (const a of packable) {
+    const label = (a.asset_key || '').replace(/^filegroup:/, '');
+    const typeBadge = a.type === 'video'
+      ? '<span class="badge badge--purple">视频</span>'
+      : '<span class="badge badge--blue">图片</span>';
+    if (a.status === 'ok') {
+      html += `<div class="card mb-2" style="border-left:3px solid var(--green)">
+        <div class="flex items-center justify-between">
+          <div><strong>${esc(label)}</strong> ${typeBadge}</div>
+          <span class="badge badge--green">✓ 唯一版本·自动采用</span>
+        </div>
+        <div class="text-xs text-muted mt-1">${esc(a.final_file)}</div>
+      </div>`;
+    } else if (a.status === 'need_confirm') {
+      html += `<div class="card mb-2" style="border-left:3px solid var(--amber)">
+        <div class="flex items-center justify-between mb-2">
+          <div><strong>${esc(label)}</strong> ${typeBadge}</div>
+          <span class="badge badge--amber">请选择最终版</span>
+        </div>
+        <div class="flex flex-col gap-1">`;
+      for (const c of (a.candidates || [])) {
+        html += `<label class="text-sm" style="cursor:pointer;display:block">
+          <input type="radio" name="finalpick" data-key="${esc(a.asset_key)}" value="${esc(c.file)}"> ${esc(c.file)}
+          <span class="text-xs text-muted">(${c.source === 'global' ? '全局' : '项目'})</span></label>`;
+      }
+      html += `</div></div>`;
+    }
+  }
+  const refs = r.assets.filter(a => a.type === 'ref_missing');
+  for (const a of refs) {
+    const nm = a.search_names[0];
+    html += `<div class="card mb-2" style="border-left:3px solid var(--rose)">
+      <div class="flex items-center justify-between">
+        <div><strong>⚠️ 确实缺失</strong></div><span class="badge badge--rose">参考图</span>
+      </div>
+      <div class="text-sm mt-1">角色/场景「<strong>${esc(nm)}</strong>」在 08_Image 中暂无同名参考图。建议到「资产管理」导入该参考图以保证角色一致性。</div>
+    </div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+// 收集选择并创建+导出
+async function pkgCreateExport(container, pid, name) {
+  const r = S.pkgAnalyze;
+  const selection = {};
+  if (r) {
+    for (const a of r.assets) {
+      if (a.status === 'need_confirm') {
+        const el = container.querySelector(`input[data-key="${_pkgCssEsc(a.asset_key)}"]:checked`);
+        if (el) selection[a.asset_key] = el.value;
+      }
+    }
+  }
+  const need = r ? r.assets.filter(a => a.status === 'need_confirm' && !selection[a.asset_key]) : [];
+  if (need.length) {
+    toast('请先为 ' + need.map(a => (a.asset_key || '').replace(/^filegroup:/, '')).join('、') + ' 选择最终版');
+    return;
+  }
+  toast('正在创建并导出素材包...');
+  let cr, er;
+  try { cr = await api(`/asset-packages/${pid}/create`, { method: 'POST', body: { name, selection } }); }
+  catch (e) { toast('创建失败：' + (e.message || e)); return; }
+  try { er = await api(`/asset-packages/packages/${cr.id}/export`, { method: 'POST', body: { selection } }); }
+  catch (e) { er = (e && e.data) ? e.data : { ok: false, error: e.message || '导出失败' }; }
+
+  if (er.ok) {
+    const files = (er.exported || []).map(f => esc(String(f).split(/[\\/]/).pop())).join('<br>');
+    container.innerHTML = `<div class="card" style="border-left:3px solid var(--green)">
+      <div class="section-title mb-2">✅ 导出完成</div>
+      <div class="text-sm mb-1">导出路径：<code>${esc(er.export_dir)}</code></div>
+      <div class="text-sm mb-1">已导出 <strong>${er.exported_count}</strong> 个文件（仅最终确认版）</div>
+      <details class="mt-2"><summary class="text-sm text-muted" style="cursor:pointer">查看文件清单</summary>
+      <div class="text-xs text-muted mt-1">${files}</div></details>
+      <div class="text-sm text-muted mt-2">将导出文件夹内容直接丢给豆包即可生成视频。</div>
+    </div>${container.innerHTML}`;
+  } else if (er.blocked) {
+    const un = (er.unconfirmed || []).map(k => String(k).replace(/^filegroup:/, '')).join('、');
+    toast('仍有未确认最终版：' + un);
+    container.insertAdjacentHTML('afterbegin', `<div class="card mb-3" style="border-left:3px solid var(--amber)">
+      <div class="text-sm" style="color:var(--amber)">⚠️ 以下素材存在多个版本，请先逐项选择最终版：${esc(un)}</div></div>`);
+  } else {
+    container.insertAdjacentHTML('afterbegin', `<div class="card mb-3" style="border-left:3px solid var(--amber)">
+      <div class="text-sm" style="color:var(--amber)">${esc(er.error || '导出失败')}</div></div>`);
+  }
+}
+
 function renderAssetPackages(c) {
   c.innerHTML = `
     <div class="section-header">
@@ -1720,10 +1981,10 @@ function renderAssetPackages(c) {
         ${S.projects.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
       </select>
     </div>
-    <div class="text-sm text-muted mb-4">根据分镜提示词自动提取所需素材，匹配资产库，打包导出。只有「最终确认」版本的素材才会被打包。</div>
+    <div class="text-sm text-muted mb-4">自动读取分镜与素材，按文件分组打包。只有你「确认最终版」的素材才会被导出；确实缺失的素材会明确提醒。</div>
     <div class="flex gap-2 mb-4">
       <button class="btn btn--green" id="btnAnalyzePkg">🔍 分析需求</button>
-      <button class="btn btn--primary" id="btnCreatePkg">📦 创建打包</button>
+      <button class="btn btn--primary" id="btnCreatePkg">📦 创建并确认导出</button>
     </div>
     <div id="pkgResult"></div>
     <div class="section-title mt-4 mb-2">📋 历史打包</div>
@@ -1734,7 +1995,6 @@ function renderAssetPackages(c) {
   document.getElementById('btnCreatePkg').onclick = () => createPackage();
   document.getElementById('pkgProject').onchange = () => loadPackageHistory();
 
-  // 默认选中第一个项目
   if (S.projects.length) {
     document.getElementById('pkgProject').value = S.projects[0].id;
     loadPackageHistory();
@@ -1745,49 +2005,18 @@ async function analyzePackage() {
   const pid = document.getElementById('pkgProject').value;
   if (!pid) { toast('请先选择项目'); return; }
   toast('正在分析资产需求...');
-  const r = await api(`/asset-packages/${pid}/analyze`, { method: 'POST', body: {} });
-
   const container = document.getElementById('pkgResult');
-  container.innerHTML = `
-    <div class="card mb-4">
-      <div class="section-title mb-2">📊 分析结果</div>
-      <div class="flex gap-4 mb-4">
-        <div class="badge badge--green" style="padding:6px 12px;font-size:.85rem">✓ 已匹配 ${r.matched_count} 项</div>
-        <div class="badge badge--rose" style="padding:6px 12px;font-size:.85rem">✗ 缺失 ${r.missing_count} 项</div>
-      </div>
-
-      ${r.matched_count > 0 ? `
-      <div class="section-title" style="font-size:.82rem;margin-bottom:8px">已匹配素材</div>
-      <table class="table mb-4">
-        <thead><tr><th>来源</th><th>分类</th><th>文件名</th><th>匹配关键词</th></tr></thead>
-        <tbody>${r.matched.map(m => `<tr>
-          <td><span class="badge badge--${m.source==='global'?'purple':'blue'}">${m.source==='global'?'全局':'项目'}</span></td>
-          <td>${m.category}</td>
-          <td class="text-muted">${m.filename}</td>
-          <td>${m.keyword}</td>
-        </tr>`).join('')}</tbody>
-      </table>` : ''}
-
-      ${r.missing_count > 0 ? `
-      <div class="section-title" style="font-size:.82rem;margin-bottom:8px">缺失素材</div>
-      <table class="table">
-        <thead><tr><th>分类</th><th>关键词</th><th>操作建议</th></tr></thead>
-        <tbody>${r.missing.map(m => `<tr>
-          <td>${m.category}</td>
-          <td><span class="badge badge--amber">${m.keyword}</span></td>
-          <td class="text-muted text-sm">在 01_Global_Assets/ 或 02_Projects/ 对应目录下添加素材</td>
-        </tr>`).join('')}</tbody>
-      </table>` : ''}
-    </div>
-  `;
+  try {
+    const r = await api(`/asset-packages/${pid}/analyze`, { method: 'POST', body: {} });
+    S.pkgAnalyze = r;
+    container.innerHTML = buildPackageAnalyzeHTML(r);
+  } catch (e) { toast('分析失败'); }
 }
 
 async function createPackage() {
   const pid = document.getElementById('pkgProject').value;
   if (!pid) { toast('请先选择项目'); return; }
-  toast('正在创建素材包...');
-  const r = await api(`/asset-packages/${pid}/create`, { method: 'POST', body: { name: `素材包_${new Date().toLocaleDateString()}` } });
-  toast(`素材包已创建: ${r.matched_assets?.length || 0} 项已匹配`);
+  await pkgCreateExport(document.getElementById('pkgResult'), pid, `素材包_${new Date().toLocaleDateString()}`);
   loadPackageHistory();
 }
 
@@ -1797,7 +2026,7 @@ async function loadPackageHistory() {
   if (!pid || !container) return;
 
   let packages = [];
-  try { packages = await api(`/asset-packages/${pid}/packages`); } catch(e) {}
+  try { packages = await api(`/asset-packages/${pid}/packages`); } catch (e) {}
 
   if (!packages.length) {
     container.innerHTML = '<div class="text-muted text-sm">暂无打包记录</div>';
@@ -1809,10 +2038,10 @@ async function loadPackageHistory() {
       <div class="flex items-center justify-between">
         <div>
           <div style="font-weight:500">${esc(pkg.name)}</div>
-          <div class="text-xs text-muted">${pkg.created_time} · 匹配 ${pkg.matched_assets?.length||0} 项 · 缺失 ${pkg.missing_assets?.length||0} 项</div>
+          <div class="text-xs text-muted">${pkg.created_time} · 素材 ${pkg.matched_assets?.length || 0} 项</div>
         </div>
         <div class="flex gap-2">
-          <span class="badge badge--${pkg.status==='packed'?'green':pkg.status==='ready'?'blue':'gray'}">${pkg.status==='packed'?'已导出':pkg.status==='ready'?'待导出':'草稿'}</span>
+          <span class="badge badge--${pkg.status === 'packed' ? 'green' : pkg.status === 'ready' ? 'blue' : 'gray'}">${pkg.status === 'packed' ? '已导出' : pkg.status === 'ready' ? '待导出' : '草稿'}</span>
           <button class="btn btn--sm btn--green" data-pkgid="${pkg.id}" data-action="export">导出</button>
           <button class="btn btn--sm btn--rose" data-pkgid="${pkg.id}" data-action="delete">删除</button>
         </div>
@@ -1824,8 +2053,13 @@ async function loadPackageHistory() {
   container.querySelectorAll('button[data-action="export"]').forEach(btn => {
     btn.onclick = async () => {
       toast('正在导出素材包...');
-      const r = await api(`/asset-packages/packages/${btn.dataset.pkgid}/export`, { method: 'POST', body: {} });
-      toast(`导出完成: ${r.exported_count} 个文件`);
+      try {
+        const r = await api(`/asset-packages/packages/${btn.dataset.pkgid}/export`, { method: 'POST', body: {} });
+        if (r.ok) toast(`导出完成: ${r.exported_count} 个文件`);
+        else toast(r.error || '导出未完成');
+      } catch (e) {
+        toast((e && e.data && e.data.error) ? e.data.error : (e.message || '导出失败'));
+      }
       loadPackageHistory();
     };
   });
@@ -1842,10 +2076,23 @@ async function loadPackageHistory() {
 function renderNovelScript(c) {
   c.innerHTML = `
     <div class="text-sm text-muted mb-4">将小说章节转换为结构化剧本，自动估算时长并拆分为10-15秒分镜头。</div>
+    <div class="flex gap-2 mb-3">
+      <button class="btn btn--amber btn--sm" id="btnScanScript">📥 扫描导入剧本</button>
+    </div>
+    <div class="text-xs text-muted mb-3">也可把剧本 JSON（含 scenes/shots）放进 <code>02_Projects/{项目名}/03_Import/</code>，点「扫描导入剧本」自动建库（按标题联动章节）。</div>
     <div id="scriptChapterList"></div>
     <div id="scriptDetail" class="mt-4"></div>
   `;
   loadScriptChapters();
+  const bss = document.getElementById('btnScanScript');
+  if (bss) bss.onclick = async () => {
+    toast('正在扫描 03_Import 目录...');
+    try {
+      const r = await api(`/import/${S.novelProject.id}/scan-scripts`, { method: 'POST', body: {} });
+      toast(r.message || '导入完成');
+    } catch (e) { toast('扫描失败：' + (e.message || e)); }
+    loadScriptChapters();
+  };
 }
 
 async function loadScriptChapters() {
@@ -1895,6 +2142,17 @@ async function loadScriptChapters() {
   });
 }
 
+function downloadScript(filename, fmt) {
+  const url = `/api/script-export/${fmt}/${encodeURIComponent(S.novelProject.name)}/${filename}`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  toast(`正在导出 ${fmt.toUpperCase()} 格式…`);
+}
+
 async function viewScriptDetail(filename) {
   const container = document.getElementById('scriptDetail');
   if (!container) return;
@@ -1910,6 +2168,8 @@ async function viewScriptDetail(filename) {
         <div class="flex items-center justify-between mb-4">
           <div class="section-title">🎬 ${esc(data.title || filename)}</div>
           <div class="flex gap-2">
+            <button class="btn btn--sm" onclick="downloadScript('${encodeURIComponent(filename)}','fountain')">⬇ Fountain</button>
+            <button class="btn btn--sm" onclick="downloadScript('${encodeURIComponent(filename)}','fdx')">⬇ FDX</button>
             <span class="badge badge--purple">总时长 ${data.total_duration || 0}秒</span>
             <span class="badge badge--blue">${shots.length || scenes.length} 个镜头</span>
           </div>
@@ -1959,94 +2219,394 @@ async function viewScriptDetail(filename) {
   }
 }
 
-/* ──── 分镜提示词 ──── */
+/* ──── 分镜画布（提示词 ↔ 静帧 联动） ──── */
 function renderNovelStoryboard(c) {
   c.innerHTML = `
-    <div class="text-sm text-muted mb-4">从剧本生成电影级分镜提示词，点击可展开查看完整 Prompt 及对应资产图。</div>
-    <div id="sbPromptList"></div>
+    <div class="text-sm text-muted mb-3">分镜画布：每张卡片把 <b>电影级提示词</b> 与 <b>AI 生成的静帧</b> 绑在一起，并标注命中的全局资产（机位/光线/风格…）与出场角色。点击卡片看大图与完整 Prompt；色块可反查参考资产。</div>
+    <div class="sb-toolbar mb-3">
+      <button class="btn btn--sm" id="sbToggleImg">🖼 仅看未出图</button>
+      <span id="sbFilterBanner"></span>
+      <span class="text-xs text-muted" id="sbStat" style="margin-left:auto"></span>
+    </div>
+    <div id="sbCanvas" class="sb-canvas"></div>
   `;
-  loadStoryboardPrompts();
+  loadStoryboard();
 }
 
-async function loadStoryboardPrompts() {
-  const container = document.getElementById('sbPromptList');
-  if (!container) return;
-  let promptFiles = [];
-  let imageFiles = [];
-  try { promptFiles = await api(`/assets/${S.novelProject.name}?category=prompt`); } catch(e) {}
-  try { imageFiles = await api(`/assets/${S.novelProject.name}?category=image`); } catch(e) {}
-
-  if (!promptFiles.length) {
-    container.innerHTML = '<div class="empty"><div class="empty__icon">🎞</div><div class="empty__title">暂无分镜提示词</div><div class="empty__desc">先在「剧本生成」中生成剧本，然后运行「剧本→提示词」流水线</div></div>';
+async function loadStoryboard() {
+  const canvas = document.getElementById('sbCanvas');
+  const stat = document.getElementById('sbStat');
+  const toggle = document.getElementById('sbToggleImg');
+  if (!canvas) return;
+  canvas.innerHTML = '<div class="text-sm text-muted">加载分镜画布中…</div>';
+  let data;
+  try {
+    data = await api(`/storyboard/${S.novelProject.id}`);
+  } catch (e) {
+    canvas.innerHTML = `<div class="empty"><div class="empty__icon">🎞</div><div class="empty__title">加载失败</div><div class="empty__desc">${esc(e.message)}</div></div>`;
     return;
   }
+  const shots = data.shots || [];
+  if (!shots.length) {
+    canvas.innerHTML = '<div class="empty"><div class="empty__icon">🎞</div><div class="empty__title">暂无分镜</div><div class="empty__desc">先在「剧本生成」生成剧本，再运行「剧本→提示词」流水线</div></div>';
+    return;
+  }
+  stat.textContent = `共 ${data.shot_count} 个分镜 · ${data.with_image} 张已出图`;
 
-  container.innerHTML = promptFiles.map(f => `
-    <div class="card mb-2 fade-up" style="cursor:pointer" data-file="${esc(f)}" data-action="expand-prompt">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <span>🎞</span>
-          <strong style="font-size:.88rem">${esc(f)}</strong>
-        </div>
-        <span style="color:var(--t3);font-size:.8rem">▼ 点击展开</span>
-      </div>
-      <div class="prompt-detail" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"></div>
-    </div>
-  `).join('');
+  // 角色 / 场景 筛选横幅
+  const banner = document.getElementById('sbFilterBanner');
+  if (S.sbFilterChar || S.sbFilterLoc) {
+    const label = S.sbFilterChar ? `🔎 角色：${S.sbFilterChar}` : `🔎 场景：${S.sbFilterLoc}`;
+    banner.innerHTML = `<span class="badge badge--amber" style="cursor:pointer" id="sbClearFilter">${label} ✕</span>`;
+    const clr = document.getElementById('sbClearFilter');
+    if (clr) clr.onclick = () => { S.sbFilterChar = null; S.sbFilterLoc = null; loadStoryboard(); };
+  } else {
+    banner.innerHTML = '';
+  }
 
-  container.querySelectorAll('[data-action="expand-prompt"]').forEach(card => {
-    card.onclick = async () => {
-      const detail = card.querySelector('.prompt-detail');
-      if (detail.style.display !== 'none') {
-        detail.style.display = 'none';
-        return;
-      }
-      detail.style.display = 'block';
-      detail.innerHTML = '<div class="text-sm text-muted">加载中...</div>';
+  const passesFilter = (s) => {
+    if (S.sbFilterChar && !(s.characters || []).includes(S.sbFilterChar)) return false;
+    if (S.sbFilterLoc && s.location !== S.sbFilterLoc) return false;
+    return true;
+  };
 
-      try {
-        const resp = await fetch(`/files/${S.novelProject.name}/prompt/${encodeURIComponent(card.dataset.file)}`);
-        const data = await resp.json();
-        const vp = data.video_prompt || '';
-        const np = data.negative_prompt || '';
-
-        // 尝试匹配资产图
-        const matchedImages = imageFiles.filter(img => {
-          const imgLower = img.toLowerCase();
-          const keywords = vp.split(/[，,、]/).slice(0, 5);
-          return keywords.some(kw => kw.length > 1 && imgLower.includes(kw.substring(0, 3)));
-        });
-
-        detail.innerHTML = `
-          <div class="mb-2">
-            <div class="text-xs text-muted mb-1">正向提示词 (video_prompt)</div>
-            <div style="padding:8px 12px;background:var(--bg);border-radius:var(--r);font-size:.82rem;line-height:1.6;word-break:break-all">${esc(vp)}</div>
-          </div>
-          <div class="mb-2">
-            <div class="text-xs text-muted mb-1">负面提示词 (negative_prompt)</div>
-            <div style="padding:8px 12px;background:var(--bg);border-radius:var(--r);font-size:.82rem;line-height:1.6;color:var(--rose)">${esc(np)}</div>
-          </div>
-          <div class="flex gap-4 mb-2">
-            ${data.camera ? `<div class="text-xs"><span class="text-muted">镜头:</span> ${esc(data.camera)}</div>` : ''}
-            ${data.lighting ? `<div class="text-xs"><span class="text-muted">灯光:</span> ${esc(data.lighting)}</div>` : ''}
-            ${data.duration ? `<div class="text-xs"><span class="text-muted">时长:</span> ${esc(data.duration)}</div>` : ''}
-          </div>
-          ${matchedImages.length ? `
-          <div class="mt-2">
-            <div class="text-xs text-muted mb-1">🖼 对应资产图 (${matchedImages.length}张)</div>
-            <div class="flex gap-2" style="flex-wrap:wrap">
-              ${matchedImages.map(img => `
-                <div style="width:100px;height:60px;background:var(--bg4);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:.7rem;color:var(--t3);border:1px solid var(--border)">${esc(img.substring(0,15))}</div>
-              `).join('')}
+  const render = (filterMissing) => {
+    let list = shots.filter(passesFilter);
+    if (filterMissing) list = list.filter(s => !s.image);
+    if (!list.length) {
+      canvas.innerHTML = `<div class="text-sm text-muted">${filterMissing ? '所有分镜均已生成静帧 ✅' : '当前筛选条件下没有分镜'}</div>`;
+      return;
+    }
+    canvas.innerHTML = list.map((s) => {
+      const idx = shots.indexOf(s);
+      const still = s.image
+        ? `<img src="/files/${encodeURIComponent(S.novelProject.name)}/image/${encodeURIComponent(s.image)}" loading="lazy" alt="${esc(s.shot_label)}">`
+        : `<div class="sb-still__empty">🎞<br><span>未生成静帧</span></div>`;
+      const chips = (s.assets || []).slice(0, 4).map(a =>
+        `<span class="asset-chip asset-chip--${a.color}" title="${esc(a.description || '')}">${a.icon} ${esc(a.name)}</span>`
+      ).join('');
+      const more = (s.assets || []).length > 4 ? `<span class="asset-chip asset-chip--more">+${s.assets.length - 4}</span>` : '';
+      // 角色 chip（锁定角色带 🔒）
+      const charChips = (s.characters || []).map(name => {
+        const locked = (s.locked_characters || []).includes(name);
+        return `<span class="char-chip ${locked ? 'char-chip--locked' : ''}" title="${locked ? '一致性锁已注入本帧' : '出场角色'}">${locked ? '🔒 ' : ''}${esc(name)}</span>`;
+      }).join('');
+      return `
+        <div class="sb-card fade-up" data-idx="${idx}">
+          <div class="sb-still">${still}</div>
+          <div class="sb-card__body">
+            <div class="sb-card__head">
+              <span class="sb-shot-label">${esc(s.shot_label)}</span>
+              ${s.duration ? `<span class="sb-dur">${esc(s.duration)}</span>` : ''}
+              ${s.image ? '<span class="sb-ok">✓ 已出图</span>' : '<span class="sb-no">○ 未出图</span>'}
             </div>
-          </div>` : '<div class="text-xs text-muted mt-2">💡 在 08_Image/ 目录放入资产图后，系统会自动匹配</div>'}
-          <button class="btn btn--sm mt-2" onclick="event.stopPropagation();navigator.clipboard.writeText('${esc(vp).replace(/'/g,"\\'")}');toast('已复制到剪贴板')">📋 复制提示词</button>
-        `;
-      } catch (e) {
-        detail.innerHTML = `<div class="text-sm text-muted">加载失败</div>`;
-      }
+            <div class="sb-prompt-sum">${esc((s.video_prompt || '').slice(0, 70))}${(s.video_prompt || '').length > 70 ? '…' : ''}</div>
+            ${charChips ? `<div class="sb-chips">${charChips}</div>` : ''}
+            <div class="sb-chips">${chips}${more}</div>
+          </div>
+        </div>`;
+    }).join('');
+    canvas.querySelectorAll('.sb-card').forEach(card => {
+      card.onclick = () => openShotDetail(shots[+card.dataset.idx]);
+    });
+  };
+  render(false);
+  if (toggle) toggle.onclick = () => {
+    const on = toggle.classList.toggle('btn--amber');
+    toggle.textContent = on ? '🖼 显示全部' : '🖼 仅看未出图';
+    render(on);
+  };
+}
+
+function openShotDetail(shot) {
+  const overlay = document.createElement('div');
+  overlay.className = 'sb-overlay';
+  const imgBlock = shot.image
+    ? `<img class="sb-modal__img" src="/files/${encodeURIComponent(S.novelProject.name)}/image/${encodeURIComponent(shot.image)}" alt="${esc(shot.shot_label)}">`
+    : `<div class="sb-modal__img sb-modal__img--empty">🎞<br><span>该分镜尚未生成静帧</span></div>`;
+  const refs = (shot.assets || []).map(a => `
+    <div class="sb-ref">
+      <span class="asset-chip asset-chip--${a.color}">${a.icon} ${esc(a.name)}</span>
+      <div class="sb-ref__meta"><span class="text-xs text-muted">命中关键词：</span><code>${esc(a.matched_keyword)}</code></div>
+      <div class="sb-ref__desc">${esc(a.description || '（无描述）')}</div>
+    </div>`).join('') || '<div class="text-xs text-muted">未匹配到全局资产</div>';
+  overlay.innerHTML = `
+    <div class="sb-modal">
+      <button class="sb-modal__close" title="关闭">✕</button>
+      <div class="sb-modal__imgwrap">${imgBlock}</div>
+      <div class="sb-modal__side">
+        <div class="sb-modal__title">${esc(shot.shot_label)} · 分镜详情</div>
+        <div class="sb-field"><span class="sb-field__k">正向提示词 (video_prompt)</span><div class="sb-field__v">${esc(shot.video_prompt || '—')}</div></div>
+        <div class="sb-field"><span class="sb-field__k">负面提示词 (negative_prompt)</span><div class="sb-field__v sb-field__v--neg">${esc(shot.negative_prompt || '—')}</div></div>
+        <div class="sb-field-row">
+          ${shot.camera ? `<div class="sb-field"><span class="sb-field__k">镜头</span><div class="sb-field__v">${esc(shot.camera)}</div></div>` : ''}
+          ${shot.lighting ? `<div class="sb-field"><span class="sb-field__k">灯光</span><div class="sb-field__v">${esc(shot.lighting)}</div></div>` : ''}
+          ${shot.mood ? `<div class="sb-field"><span class="sb-field__k">氛围</span><div class="sb-field__v">${esc(shot.mood)}</div></div>` : ''}
+          ${shot.duration ? `<div class="sb-field"><span class="sb-field__k">时长</span><div class="sb-field__v">${esc(shot.duration)}</div></div>` : ''}
+        </div>
+        ${(shot.characters && shot.characters.length) ? `
+        <div class="sb-refpanel">
+          <div class="sb-refpanel__title">👥 出场角色</div>
+          <div class="sb-reflist">${(shot.characters || []).map(n => {
+            const locked = (shot.locked_characters || []).includes(n);
+            return `<div class="sb-ref"><span class="char-chip ${locked ? 'char-chip--locked' : ''}">${locked ? '🔒 ' : ''}${esc(n)}</span>${locked ? '<div class="sb-ref__desc">一致性锁已注入本帧提示词，防变脸</div>' : ''}</div>`;
+          }).join('')}</div>
+        </div>` : ''}
+        <div class="sb-refpanel">
+          <div class="sb-refpanel__title">🎯 视觉参考（命中全局资产）</div>
+          <div class="sb-reflist">${refs}</div>
+        </div>
+        <button class="btn btn--primary btn--sm mt-2" id="sbCopyVp">📋 复制正向提示词</button>
+      </div>
+    </div>`;
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.querySelector('.sb-modal__close').onclick = () => overlay.remove();
+  overlay.querySelector('#sbCopyVp').onclick = () => {
+    navigator.clipboard.writeText(shot.video_prompt || '').then(() => toast('已复制正向提示词')).catch(() => toast('复制失败'));
+  };
+  document.body.appendChild(overlay);
+}
+
+/* ──── 实体图谱（角色 / 场景自动派生 + 互链） ──── */
+async function renderEntityGraph(c) {
+  c.innerHTML = `
+    <div class="text-sm text-muted mb-3">实体图谱：自动从剧本中派生出出现过的 <b>角色</b> 与 <b>场景地点</b>，并标注每个角色出现在哪些分镜（点击「查看镜头」可直接跳转分镜画布筛选）。开启 🔒 一致性锁的角色，其锁定外观会被强制注入每一帧提示词，从根本上防止 AI 出图「变脸」。</div>
+    <div id="entityBody"><div class="text-sm text-muted">正在派生实体…</div></div>
+  `;
+  const body = document.getElementById('entityBody');
+  let data;
+  try {
+    data = await api(`/entities/${S.novelProject.id}`);
+  } catch (e) {
+    body.innerHTML = `<div class="empty"><div class="empty__icon">🔗</div><div class="empty__title">派生失败</div><div class="empty__desc">${esc(e.message)}</div></div>`;
+    return;
+  }
+  S.entityData = data;
+
+  const charCards = data.characters.map(ch => {
+    const lockBtn = ch.in_library
+      ? `<button class="btn btn--sm ${ch.locked ? 'btn--green' : ''}" data-lock="${ch.name}" title="切换一致性锁">${ch.locked ? '🔒 已锁' : '🔓 锁定'}</button>`
+      : `<button class="btn btn--sm btn--blue" data-addchar="${ch.name}" title="加入角色库">＋ 加入角色库</button>`;
+    const appr = ch.appearance
+      ? `<div class="text-xs text-muted mt-1" style="line-height:1.5">${esc(ch.appearance.slice(0, 80))}${ch.appearance.length > 80 ? '…' : ''}</div>`
+      : (ch.in_library ? '' : `<div class="text-xs" style="color:var(--rose)">⚠ 角色库中暂无此角色</div>`);
+    return `
+      <div class="card fade-up">
+        <div class="flex items-center justify-between mb-1">
+          <div style="font-weight:600">${esc(ch.name)} ${ch.locked ? '<span title="一致性锁已开启">🔒</span>' : ''}</div>
+          <span class="badge badge--${ch.role==='主角'?'purple':ch.role==='反派'?'rose':'blue'}">${esc(ch.role || '—')}</span>
+        </div>
+        <div class="text-xs text-muted mb-1">出现 <b>${ch.shot_count}</b> 个分镜 · ${ch.in_library ? '已在角色库' : '未在角色库'}</div>
+        ${appr}
+        <div class="flex gap-2 mt-2">
+          <button class="btn btn--sm btn--amber" data-viewshots="${ch.name}">🎞 查看镜头</button>
+          ${lockBtn}
+        </div>
+      </div>`;
+  }).join('');
+
+  const locCards = data.locations.map(l => `
+    <div class="card fade-up">
+      <div style="font-weight:600">📍 ${esc(l.name)}</div>
+      <div class="text-xs text-muted mb-2">出现 <b>${l.shot_count}</b> 个分镜</div>
+      <button class="btn btn--sm btn--amber" data-viewloc="${esc(l.name)}">🎞 查看镜头</button>
+    </div>`).join('');
+
+  body.innerHTML = `
+    <div class="section-header"><div class="section-title">👥 角色（${data.characters.length}）· 已锁 ${data.locked_count}</div></div>
+    <div class="card-grid mb-4" id="charGrid2">${charCards || '<div class="text-sm text-muted">剧本中暂未识别到角色</div>'}</div>
+    <div class="section-header"><div class="section-title">📍 场景地点（${data.locations.length}）</div></div>
+    <div class="card-grid" id="locGrid">${locCards || '<div class="text-sm text-muted">剧本中暂未识别到场景地点</div>'}</div>
+  `;
+
+  body.querySelectorAll('[data-viewshots]').forEach(btn => {
+    btn.onclick = () => { S.sbFilterChar = btn.dataset.viewshots; S.sbFilterLoc = null; S.novelStage = 'storyboard'; renderNovelProject(c); };
+  });
+  body.querySelectorAll('[data-viewloc]').forEach(btn => {
+    btn.onclick = () => { S.sbFilterLoc = btn.dataset.viewloc; S.sbFilterChar = null; S.novelStage = 'storyboard'; renderNovelProject(c); };
+  });
+  body.querySelectorAll('[data-lock]').forEach(btn => {
+    btn.onclick = async () => {
+      const name = btn.dataset.lock;
+      const ch = data.characters.find(x => x.name === name);
+      if (!ch || !ch.id) { toast('未找到该角色记录'); return; }
+      await api(`/novel/${S.novelProject.id}/characters/${ch.id}/lock`, { method: 'POST', body: {} });
+      toast(`已切换「${name}」一致性锁`);
+      renderEntityGraph(c);
     };
   });
+  body.querySelectorAll('[data-addchar]').forEach(btn => {
+    btn.onclick = async () => {
+      const name = btn.dataset.addchar;
+      await api(`/novel/${S.novelProject.id}/characters`, { method: 'POST', body: { name, role: '配角' } });
+      toast(`「${name}」已加入角色库，可在「人物设计」补全设定`);
+      loadNovelCharacters();
+      renderEntityGraph(c);
+    };
+  });
+}
+
+/* ──── 剧本诊断 / Script Doctor ──── */
+function _scoreColor(s) { return s >= 80 ? 'var(--green)' : s >= 70 ? 'var(--amber)' : 'var(--rose)'; }
+function _sevMeta(sev) {
+  return ({
+    error: { c: 'var(--rose)', t: '⛔ 严重' },
+    warning: { c: 'var(--amber)', t: '⚠ 建议' },
+    ok: { c: 'var(--green)', t: '✓ 良好' },
+    info: { c: 'var(--blue)', t: 'ℹ 提示' },
+  })[sev] || { c: 'var(--blue)', t: 'ℹ' };
+}
+
+async function renderScriptDoctor(c) {
+  c.innerHTML = `
+    <div class="text-sm text-muted mb-3">剧本诊断（Script Doctor）：在「生成分镜/出图」之前，先用专业编剧视角给剧本做一次<b>结构 · 人物压力 · 节奏</b>三项体检。确定性体检秒级返回、零成本；点「🤖 AI 深度诊断」可让大模型给出可执行的修改方向（仅耗 token，不耗图片额度）。</div>
+    <div id="doctorBody"><div class="text-sm text-muted">正在体检…</div></div>
+  `;
+  const body = document.getElementById('doctorBody');
+  let data;
+  try {
+    data = await api(`/script-doctor/${S.novelProject.id}`);
+  } catch (e) {
+    body.innerHTML = `<div class="empty"><div class="empty__icon">🩺</div><div class="empty__title">体检失败</div><div class="empty__desc">${esc(e.message)}</div></div>`;
+    return;
+  }
+  S.doctorData = data;
+  const ov = data.overall_score || 0;
+  const ovc = _scoreColor(ov);
+  const R = 52, C = 2 * Math.PI * R, off = C * (1 - ov / 100);
+
+  // 类别卡
+  const cats = ['structure', 'character', 'pacing'].map(k => {
+    const cat = data.categories[k] || {};
+    const s = cat.score || 0;
+    const issues = (data.issues || []).filter(i => (i.category || '') === (cat.label || _catLabel(k)));
+    const list = (issues.length ? issues : []).map((i, idx) => {
+      const m = _sevMeta(i.severity);
+      const jump = i.jump ? ` data-jump='${JSON.stringify(i.jump).replace(/'/g, "&apos;")}' style="cursor:pointer"` : '';
+      const jumpHint = i.jump ? `<span class="doc-issue__go">↗ 去修改</span>` : '';
+      return `<li class="doc-issue"${jump} style="border-left-color:${m.c}">
+        <span class="doc-issue__sev" style="color:${m.c}">${m.t}</span>
+        <span class="doc-issue__txt">${esc(i.text)}</span>
+        ${i.fix ? `<span class="doc-issue__fix">→ ${esc(i.fix)}</span>` : ''}
+        ${jumpHint}
+      </li>`;
+    }).join('') || '<li class="doc-issue" style="border-left-color:var(--green)"><span class="doc-issue__sev" style="color:var(--green)">✓ 良好</span><span class="doc-issue__txt">该维度未检出明显问题。</span></li>';
+    const metrics = Object.entries(cat.metrics || {}).map(([k2, v]) =>
+      `<span class="doc-metric"><b>${esc(String(v))}</b>${esc(k2)}</span>`).join('');
+    return `
+      <div class="card fade-up">
+        <div class="doc-cat__head">
+          <div class="doc-cat__title">${esc(cat.label || _catLabel(k))}</div>
+          <div class="doc-cat__score" style="color:${_scoreColor(s)}">${s}<span class="doc-cat__scoreu">/100</span></div>
+        </div>
+        <div class="doc-bar"><div class="doc-bar__fill" style="width:${s}%;background:${_scoreColor(s)}"></div></div>
+        <div class="doc-metrics">${metrics}</div>
+        <ul class="doc-issue-list">${list}</ul>
+      </div>`;
+  }).join('');
+
+  // 张力曲线 SVG
+  const curve = data.tension_curve || [];
+  const W = 640, H = 180, padL = 30, padR = 12, padT = 14, padB = 24;
+  const n = curve.length || 1;
+  const x = i => padL + (W - padL - padR) * (n === 1 ? 0.5 : i / (n - 1));
+  const y = v => padT + (H - padT - padB) * (1 - v / 10);
+  const actColor = { '一幕': 'rgba(120,120,200,.10)', '二幕': 'rgba(200,150,80,.10)', '三幕': 'rgba(80,180,120,.10)' };
+  const bands = curve.map((p, i) => {
+    const x0 = i === 0 ? padL : x(i) - (x(1) - x(0)) / 2;
+    const w = (i === n - 1 ? (W - padR) : x(i) + (x(1) - x(0)) / 2) - x0;
+    return `<rect x="${x0}" y="${padT}" width="${Math.max(0, w)}" height="${H - padT - padB}" fill="${actColor[p.act] || 'transparent'}"/>
+      <text x="${x0 + 4}" y="${padT + 12}" font-size="10" fill="var(--t3)">${esc(p.act)}</text>`;
+  }).join('');
+  const pts = curve.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.intensity)}" r="3.5" fill="${_scoreColor(p.intensity * 10)}"/>`).join('');
+  const linePath = curve.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(p.intensity).toFixed(1)}`).join(' ');
+  const grid = [0, 5, 10].map(v => `<line x1="${padL}" y1="${y(v)}" x2="${W - padR}" y2="${y(v)}" stroke="var(--border)" stroke-width="1"/>
+    <text x="4" y="${y(v) + 3}" font-size="9" fill="var(--t3)">${v}</text>`).join('');
+  const labels = curve.map((p, i) => `<text x="${x(i)}" y="${H - 8}" font-size="9" fill="var(--t3)" text-anchor="middle">${esc(p.label)}</text>`).join('');
+
+  body.innerHTML = `
+    <div class="doc-top">
+      <div class="doc-ring card">
+        <svg viewBox="0 0 140 140" width="140" height="140">
+          <circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--border)" stroke-width="11"/>
+          <circle cx="70" cy="70" r="${R}" fill="none" stroke="${ovc}" stroke-width="11" stroke-linecap="round"
+            stroke-dasharray="${C.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 70 70)"/>
+          <text x="70" y="64" text-anchor="middle" font-size="30" font-weight="700" fill="${ovc}">${ov}</text>
+          <text x="70" y="86" text-anchor="middle" font-size="11" fill="var(--t3)">综合可拍性</text>
+        </svg>
+        <div class="doc-ring__grade" style="color:${ovc}">${esc(data.overall_grade || '—')}</div>
+        <div class="text-xs text-muted mt-1">${data.scene_count} 场 · ${data.total_runtime}s · ${data.script_count} 个剧本</div>
+      </div>
+      <div class="doc-actions card">
+        <div class="section-title mb-2" style="font-size:.9rem">🩺 一键诊断</div>
+        <div class="text-sm text-muted mb-3" style="line-height:1.7">确定性体检已根据三幕结构、人物戏份与节奏规律给出问题清单。<br>想要更「人味」的编剧级评语，可调用大模型：</div>
+        <button class="btn btn--purple" id="btnAiReview">🤖 AI 深度诊断（耗 token）</button>
+        <div id="aiReviewBox" class="doc-ai mt-3" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="section-header mt-4"><div class="section-title">📈 戏剧张力曲线</div></div>
+    <div class="card mb-4">
+      <svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet" style="max-height:260px">
+        ${bands}${grid}
+        <path d="${linePath}" fill="none" stroke="var(--purple)" stroke-width="2.5"/>
+        ${pts}${labels}
+      </svg>
+      <div class="text-xs text-muted mt-1">横轴为场景顺序，纵轴为每场剧名强度（情绪×动作×冲突）。理想曲线应在中段累积、结尾前冲到高潮后回落。</div>
+    </div>
+
+    <div class="section-header"><div class="section-title">🧩 三项体检</div></div>
+    <div class="card-grid">${cats}</div>
+  `;
+
+  // 问题卡片「↗ 去修改」：点击跳到对应阶段
+  body.querySelectorAll('.doc-issue[data-jump]').forEach(li => {
+    li.onclick = () => {
+      try { doctorJump(JSON.parse(li.dataset.jump.replace(/&apos;/g, "'"))); }
+      catch (e) { /* ignore */ }
+    };
+  });
+
+  document.getElementById('btnAiReview').onclick = async () => {
+    const box = document.getElementById('aiReviewBox');
+    box.style.display = 'block';
+    box.innerHTML = '<div class="text-sm text-muted">🤖 大模型诊断中…（约 10-30 秒）</div>';
+    try {
+      const r = await api(`/script-doctor/${S.novelProject.id}/ai-review`, { method: 'POST', body: {} });
+      box.innerHTML = `<div class="doc-ai__title">🎬 编剧诊断书</div><div class="doc-ai__body">${esc(r.review).replace(/\\n/g, '<br>')}</div>`;
+    } catch (e) {
+      box.innerHTML = `<div class="text-sm" style="color:var(--rose)">诊断失败：${esc(e.message)}</div>`;
+    }
+  };
+}
+
+function _catLabel(k) { return ({ structure: '结构', character: '人物压力', pacing: '节奏' })[k] || k; }
+
+/* Script Doctor 问题「一键跳到对应阶段修改」 */
+function doctorJump(jump) {
+  if (!jump) return;
+  const c = document.getElementById('novelProjectDetail');
+  if (!c) return;
+  if ((jump.stage === 'character') && jump.char) {
+    const ch = S.novelCharacters.find(x => x.name === jump.char);
+    S.novelStage = 'character';
+    renderNovelProject(c);
+    if (ch) setTimeout(() => showEditCharModal(ch.id), 60);
+    toast(`已跳到「人物设计」→ ${jump.char}`);
+    return;
+  }
+  if (jump.stage === 'storyboard') {
+    S.sbFilterChar = jump.filter || null;
+    S.sbFilterLoc = jump.filterLoc || null;
+    S.novelStage = 'storyboard';
+    renderNovelProject(c);
+    toast('已跳到「分镜提示词」核对镜头');
+    return;
+  }
+  if (jump.stage === 'character') {
+    S.novelStage = 'character';
+    renderNovelProject(c);
+  }
 }
 
 /* ──── 资产提示词 ──── */
@@ -2091,7 +2651,7 @@ function renderNovelAssetImages(c) {
     <div class="section-title mb-2">📁 已有资产图</div>
     <div id="assetImageGrid"></div>
   `;
-  document.getElementById('btnImportImg').onclick = () => toast('将图片放入 02_Projects/{项目名}/08_Image/ 目录即可');
+  document.getElementById('btnImportImg').onclick = () => openImportImageModal();
   document.getElementById('btnGenImg').onclick = () => toast('AI 图片生成功能开发中');
   loadAssetImages();
 }
@@ -2117,23 +2677,50 @@ async function loadAssetImages() {
   `).join('')}</div>`;
 }
 
+/* ──── 资产图导入（支持改名） ──── */
+function openImportImageModal() {
+  showModal('导入资产图', `
+    <div class="form-group"><label>选择图片</label><input type="file" id="impFile" accept="image/*"></div>
+    <div class="form-group"><label>文件名（不含扩展名，可改名便于资产匹配）</label><input type="text" id="impName" placeholder="例：陈默_保安制服_最终版"></div>
+    <div class="text-xs text-muted">文件名会出现在 08_Image/ 并用于素材匹配关键词，建议含角色/场景名。</div>
+  `, async () => {
+    const fileInput = document.getElementById('impFile');
+    if (!fileInput || !fileInput.files || !fileInput.files.length) {
+      toast('请先选择图片');
+      return;
+    }
+    const fd = new FormData();
+    fd.append('file', fileInput.files[0]);
+    fd.append('asset_name', (document.getElementById('impName')?.value || '').trim());
+    toast('正在导入...');
+    try {
+      const resp = await fetch(`/api/import/${S.novelProject.id}/import-image`, { method: 'POST', body: fd });
+      const r = await resp.json();
+      if (!resp.ok || !r.ok) throw new Error(r.error || '导入失败');
+      toast('已导入：' + r.filename);
+      loadAssetImages();
+    } catch (e) {
+      toast('导入失败：' + (e.message || e));
+    }
+  });
+}
+
 /* ──── 打包导出 ──── */
 function renderNovelPackage(c) {
   c.innerHTML = `
-    <div class="text-sm text-muted mb-4">打包最终确认的分镜提示词和资产图，导出后可直接丢给豆包生成视频。</div>
+    <div class="text-sm text-muted mb-4">自动读取分镜与素材，按文件分组打包。只有你「确认最终版」的素材才会被导出；确实缺失的素材会明确提醒。</div>
     <div class="card mb-4">
       <div class="section-title mb-2">📦 打包内容说明</div>
       <div class="text-sm" style="line-height:1.8">
         <div>• <strong>分镜提示词</strong>：每个场景的电影级 Prompt（从「分镜提示词」阶段获取）</div>
-        <div>• <strong>角色资产图</strong>：最终确认版的角色参考图</div>
-        <div>• <strong>场景资产图</strong>：最终确认版的场景参考图</div>
-        <div>• <strong>道具资产图</strong>：最终确认版的道具参考图</div>
-        <div class="mt-2 text-muted">所有素材使用规范命名：{类型}_{名称}_{关键词}_{版本}.png</div>
+        <div>• <strong>素材图 / 视频</strong>：08_Image / 09_Video 中实际产出的静帧与成片</div>
+        <div>• <strong>多版本确认</strong>：同一素材有多个文件时，需逐项选择最终版</div>
+        <div>• <strong>缺失提醒</strong>：分镜要求却无参考图的角色/场景会标红提醒</div>
       </div>
     </div>
     <div class="flex gap-2 mb-4">
       <button class="btn btn--green" id="btnAnalyzePkg2">🔍 分析需求</button>
-      <button class="btn btn--primary" id="btnCreatePkg2">📦 创建并导出</button>
+      <button class="btn btn--primary" id="btnCreatePkg2">📦 创建并确认导出</button>
       <button class="btn btn--amber" id="btnAILearn">🤖 AI 学习：丰富全局资产</button>
     </div>
     <div id="pkgResult2"></div>
@@ -2145,42 +2732,17 @@ function renderNovelPackage(c) {
 
 async function analyzeNovelPackage() {
   toast('正在分析资产需求...');
-  const r = await api(`/asset-packages/${S.novelProject.id}/analyze`, { method: 'POST', body: {} });
   const container = document.getElementById('pkgResult2');
-  container.innerHTML = `
-    <div class="card mb-4">
-      <div class="flex gap-4 mb-2">
-        <span class="badge badge--green" style="padding:6px 12px">✓ 匹配 ${r.matched_count} 项</span>
-        <span class="badge badge--rose" style="padding:6px 12px">✗ 缺失 ${r.missing_count} 项</span>
-      </div>
-      ${r.matched.length ? `<div class="text-sm text-muted">已匹配：${r.matched.map(m => m.filename).join('、')}</div>` : ''}
-      ${r.missing.length ? `<div class="text-sm" style="color:var(--amber)">缺失：${r.missing.map(m => m.keyword).join('、')}</div>` : ''}
-    </div>
-  `;
+  try {
+    const r = await api(`/asset-packages/${S.novelProject.id}/analyze`, { method: 'POST', body: {} });
+    S.pkgAnalyze = r;
+    container.innerHTML = buildPackageAnalyzeHTML(r);
+  } catch (e) { toast('分析失败'); }
 }
 
 async function createNovelPackage() {
-  toast('正在创建素材包并导出...');
-  const r = await api(`/asset-packages/${S.novelProject.id}/create`, { method: 'POST', body: { name: `${S.novelProject.name}_素材包_${new Date().toLocaleDateString()}` } });
-  const exp = await api(`/asset-packages/packages/${r.id}/export`, { method: 'POST', body: {} });
   const container = document.getElementById('pkgResult2');
-  if (exp.ok) {
-    container.innerHTML = `
-      <div class="card">
-        <div class="section-title mb-2">✅ 导出完成</div>
-        <div class="text-sm mb-2">导出路径：${esc(exp.export_dir)}</div>
-        <div class="text-sm mb-2">已导出 ${exp.exported_count} 个文件</div>
-        <div class="text-sm text-muted mt-2">将导出文件夹中的内容直接丢给豆包即可生成视频。</div>
-      </div>
-    `;
-  } else {
-    container.innerHTML = `
-      <div class="card" style="border-left:3px solid var(--amber)">
-        <div class="text-sm" style="color:var(--amber)">${esc(exp.error || '没有匹配的资产可导出')}</div>
-        <div class="text-sm text-muted mt-2">请先在「资产管理」中导入资产图，并确认最终版。</div>
-      </div>
-    `;
-  }
+  await pkgCreateExport(container, S.novelProject.id, `${S.novelProject.name}_素材包_${new Date().toLocaleDateString()}`);
 }
 
 async function aiLearnFromFinals() {
@@ -2233,6 +2795,8 @@ function getNovelStageStatus(stage) {
     case 'outline': return S.novelOutline ? '✅' : '○';
     case 'plotpoints': return S.novelPlotPoints.length ? '✅' : '○';
     case 'chapters': return S.novelChapters.length ? '✅' : '○';
+    case 'entities': return S.entityData ? '✅' : '○';
+    case 'doctor': return S.doctorData ? '✅' : '○';
     default: return '○';
   }
 }
@@ -2672,6 +3236,209 @@ async function loadData() {
     case 'prompt-library': break;
     case 'novel': await loadProjects(); render(); break;
   }
+}
+
+/* ═══════════ 视频字幕阶段 ═══════════ */
+async function renderSubtitleStage(c) {
+  c.innerHTML = `
+    <div class="text-sm text-muted mb-3">视频字幕：① 选视频 → ②「自动识别」语音（或手动添加）→ 你确认/微调时间轴与文本 → ③ 选样式 →「确认并烧录」。烧录前不会写入任何字幕；同时导出 .srt 便于二次编辑或分发。</div>
+
+    <div class="card mb-3">
+      <div class="section-title mb-2">① 选择视频</div>
+      <select id="subVideoSel" class="form-control" style="max-width:380px"></select>
+      <video id="subPlayer" controls style="max-width:100%;max-height:320px;background:#000;border-radius:8px;margin-top:10px;display:none"></video>
+    </div>
+
+    <div class="card mb-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="section-title">② 字幕内容（识别后可编辑，确认后再生成）</div>
+        <button id="subRecognize" class="btn btn--primary btn--sm">🔊 自动识别语音生成字幕</button>
+      </div>
+      <div id="subNote" class="text-sm text-muted mb-2"></div>
+      <div id="subEditor"></div>
+      <div class="mt-2"><button id="subAddRow" class="btn btn--ghost btn--sm">＋ 添加字幕行</button></div>
+    </div>
+
+    <div class="card mb-3">
+      <div class="section-title mb-2">③ 字幕样式</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 16px;align-items:center">
+        <label class="flex items-center gap-2" style="font-size:.82rem">字体
+          <select id="subFont" class="form-control" style="flex:1"></select></label>
+        <label class="flex items-center gap-2" style="font-size:.82rem">字号(px)
+          <input id="subSize" type="number" class="form-control" value="36" min="12" max="140" style="width:90px"></label>
+        <label class="flex items-center gap-2" style="font-size:.82rem">文字颜色
+          <input id="subColor" type="color" value="#ffffff" style="width:42px;height:30px"></label>
+        <label class="flex items-center gap-2" style="font-size:.82rem">描边颜色
+          <input id="subStrokeColor" type="color" value="#000000" style="width:42px;height:30px"></label>
+        <label class="flex items-center gap-2" style="font-size:.82rem">描边粗细(px)
+          <input id="subStrokeW" type="number" class="form-control" value="2" min="0" max="12" style="width:80px"></label>
+        <label class="flex items-center gap-2" style="font-size:.82rem">半透明底纹
+          <input id="subBg" type="checkbox" checked style="width:18px;height:18px"></label>
+        <label class="flex items-center gap-2" style="font-size:.82rem">位置
+          <select id="subPos" class="form-control" style="flex:1">
+            <option value="bottom">底部</option><option value="top">顶部</option>
+          </select></label>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-2 mb-3">
+      <button id="subRender" class="btn btn--primary">✅ 确认并烧录字幕</button>
+      <span id="subRenderMsg" class="text-sm text-muted"></span>
+    </div>
+
+    <div id="subResult" class="card" style="display:none"></div>
+  `;
+
+  const sel = document.getElementById('subVideoSel');
+  const player = document.getElementById('subPlayer');
+
+  function selectVideo(name) {
+    subVideo = name || null;
+    if (subVideo) {
+      player.style.display = 'block';
+      player.src = `/files/${encodeURIComponent(S.novelProject.name)}/video/${encodeURIComponent(subVideo)}`;
+    } else {
+      player.style.display = 'none';
+    }
+  }
+
+  // 加载视频列表
+  try {
+    const vd = await api(`/subtitle/${S.novelProject.id}/videos`);
+    const videos = vd.videos || [];
+    if (!videos.length) {
+      sel.innerHTML = '<option>09_Video 暂无视频（请先「一键全流程」生成成片）</option>';
+      sel.disabled = true;
+    } else {
+      const def = vd.default || videos[0];
+      sel.innerHTML = videos.map(v => `<option value="${esc(v)}" ${v === def ? 'selected' : ''}>${esc(v)}</option>`).join('');
+      selectVideo(def);
+    }
+  } catch (e) {
+    sel.innerHTML = `<option>加载失败：${esc(e.message)}</option>`;
+    sel.disabled = true;
+  }
+  sel.onchange = () => selectVideo(sel.value);
+
+  // 加载字体
+  try {
+    const fd = await api('/subtitle/fonts');
+    subFonts = fd.fonts || [];
+    document.getElementById('subFont').innerHTML = subFonts.length
+      ? subFonts.map(f => `<option value="${esc(f.path)}">${esc(f.name)}</option>`).join('')
+      : '<option>未找到中文字体</option>';
+  } catch (e) {
+    document.getElementById('subFont').innerHTML = '<option>字体加载失败</option>';
+  }
+
+  // 渲染字幕编辑表
+  function renderEditor() {
+    const ed = document.getElementById('subEditor');
+    if (!subSegments.length) {
+      ed.innerHTML = '<div class="text-sm text-muted">暂无字幕。点击「自动识别」或「＋ 添加字幕行」。</div>';
+      return;
+    }
+    ed.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:.82rem">
+      <thead><tr style="color:var(--t3);text-align:left">
+        <th style="padding:4px 6px;width:96px">开始(秒)</th>
+        <th style="padding:4px 6px;width:96px">结束(秒)</th>
+        <th style="padding:4px 6px">字幕文本</th>
+        <th style="padding:4px 6px;width:40px"></th>
+      </tr></thead><tbody>${subSegments.map((s, i) => `
+        <tr>
+          <td style="padding:3px 6px"><input class="form-control sub-start" data-i="${i}" type="number" step="0.1" value="${esc(s.start)}"></td>
+          <td style="padding:3px 6px"><input class="form-control sub-end" data-i="${i}" type="number" step="0.1" value="${esc(s.end)}"></td>
+          <td style="padding:3px 6px"><input class="form-control sub-text" data-i="${i}" value="${esc(s.text)}"></td>
+          <td style="padding:3px 6px"><button class="btn btn--ghost btn--sm sub-del" data-i="${i}">✕</button></td>
+        </tr>`).join('')}</tbody></table>`;
+    ed.querySelectorAll('.sub-start,.sub-end,.sub-text').forEach(inp => {
+      inp.oninput = () => {
+        const i = +inp.dataset.i;
+        const key = inp.classList.contains('sub-start') ? 'start' : inp.classList.contains('sub-end') ? 'end' : 'text';
+        subSegments[i][key] = inp.value;
+      };
+    });
+    ed.querySelectorAll('.sub-del').forEach(b => {
+      b.onclick = () => { subSegments.splice(+b.dataset.i, 1); renderEditor(); };
+    });
+  }
+  renderEditor();
+
+  // 自动识别
+  document.getElementById('subRecognize').onclick = async () => {
+    if (!subVideo) { toast('请先选择视频'); return; }
+    const btn = document.getElementById('subRecognize');
+    const note = document.getElementById('subNote');
+    btn.disabled = true;
+    btn.textContent = '识别中…（首次需下载模型，请稍候）';
+    note.textContent = '正在抽取音频并识别语音…';
+    try {
+      const r = await api('/subtitle/transcribe', { method: 'POST', body: { project_id: S.novelProject.id, video: subVideo } });
+      subSegments = (r.segments || []).map(s => ({ start: s.start, end: s.end, text: s.text }));
+      renderEditor();
+      let msg = r.note ? esc(r.note) : `已识别 ${subSegments.length} 条字幕`;
+      if (!subSegments.length) msg += '<br>可点「＋ 添加字幕行」手动输入，并填写时间（秒）。';
+      note.innerHTML = msg;
+    } catch (e) {
+      note.textContent = '识别失败：' + e.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '🔊 自动识别语音生成字幕';
+    }
+  };
+
+  // 手动添加一行
+  document.getElementById('subAddRow').onclick = () => {
+    const last = subSegments[subSegments.length - 1];
+    const start = last ? parseFloat(last.end) || 0 : 0;
+    subSegments.push({ start, end: start + 2, text: '' });
+    renderEditor();
+  };
+
+  // 烧录
+  document.getElementById('subRender').onclick = async () => {
+    if (!subVideo) { toast('请先选择视频'); return; }
+    const segs = subSegments
+      .map(s => ({ start: parseFloat(s.start) || 0, end: parseFloat(s.end) || 0, text: (s.text || '').trim() }))
+      .filter(s => s.text);
+    if (!segs.length) { toast('没有可烧录的字幕'); return; }
+    segs.forEach(s => { if (s.end <= s.start) s.end = s.start + 1; });
+    const style = {
+      font_path: document.getElementById('subFont').value,
+      size: parseInt(document.getElementById('subSize').value) || 36,
+      color: document.getElementById('subColor').value,
+      stroke_color: document.getElementById('subStrokeColor').value,
+      stroke_width: parseInt(document.getElementById('subStrokeW').value) || 0,
+      bg: document.getElementById('subBg').checked,
+      position: document.getElementById('subPos').value,
+    };
+    const btn = document.getElementById('subRender');
+    const msg = document.getElementById('subRenderMsg');
+    btn.disabled = true;
+    msg.textContent = '烧录中…（重新编码视频，请稍候）';
+    try {
+      const r = await api('/subtitle/render', { method: 'POST', body: { project_id: S.novelProject.id, video: subVideo, segments: segs, style } });
+      const res = document.getElementById('subResult');
+      res.style.display = 'block';
+      const proj = encodeURIComponent(S.novelProject.name);
+      const vurl = `/files/${proj}/video/${encodeURIComponent(r.video_file)}`;
+      const surl = r.srt_file ? `/files/${proj}/video/${encodeURIComponent(r.srt_file)}` : '';
+      res.innerHTML = `
+        <div class="section-title mb-2">✅ 已生成（带字幕视频）</div>
+        <video controls src="${vurl}" style="max-width:100%;max-height:380px;background:#000;border-radius:8px"></video>
+        <div class="mt-2 flex gap-2">
+          <a class="btn btn--ghost btn--sm" href="${vurl}" download>⬇ 下载视频</a>
+          ${surl ? `<a class="btn btn--ghost btn--sm" href="${surl}" download>⬇ 下载 SRT</a>` : ''}
+        </div>
+        <div class="text-sm text-muted mt-1">字幕条数：${r.count}。可重新编辑上方字幕/样式后再次生成新文件（不覆盖原片）。</div>`;
+      toast('字幕烧录完成');
+    } catch (e) {
+      msg.textContent = '失败：' + e.message;
+    } finally {
+      btn.disabled = false;
+      msg.textContent = '';
+    }
+  };
 }
 
 /* ═══════════ UTILS ═══════════ */

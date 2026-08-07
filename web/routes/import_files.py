@@ -1,0 +1,242 @@
+"""文件导入 API - 扫描文件夹识别内容并建库（小说 / 剧本 / 资产图改名导入）
+
+设计：
+- 小说：把 .txt/.md 放进 02_Projects/{项目}/04_Story/，按章节标题自动拆分，批量建 NovelChapter。
+- 剧本：把剧本 JSON 放进 02_Projects/{项目}/03_Import/，复制到 05_Script 并建 ScriptModel（按标题联动章节）。
+- 资产图：上传图片时可自定义文件名存入 08_Image（文件名关系到资产匹配关键词，故支持改名）。
+- 全部带去重（按文件名+内容哈希），重复扫描不会重复建库。
+"""
+import os
+import re
+import json
+import hashlib
+import shutil
+
+from flask import Blueprint, request, jsonify, current_app
+from web.models.database import db
+from web.models.novel_models import NovelChapter
+
+bp = Blueprint("import_files", __name__)
+
+# 章节标题识别：第X章/回/节/卷/部/篇/集/幕、Chapter N、Markdown # 标题、卷X
+CHAPTER_RE = re.compile(
+    r"^\s*(?:"
+    r"第\s*[0-9零一二三四五六七八九十百千两]+\s*[章回节卷部篇集幕]|"
+    r"chapter\s+\d+|chapter\s+[ivxlcdm]+|"
+    r"#{1,6}\s+.+|"
+    r"卷\s*[一二三四五六七八九十0-9]+"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _proj_path(project_id):
+    from web.models.database import ProjectModel
+    p = ProjectModel.query.get(project_id)
+    if not p:
+        return None, None
+    return p, os.path.join(current_app.config["ROOT_PATH"], "02_Projects", p.name)
+
+
+def _marker_path(folder, kind):
+    return os.path.join(folder, f"._imported_{kind}.json")
+
+
+def _read_marker(folder, kind):
+    mp = _marker_path(folder, kind)
+    if os.path.exists(mp):
+        try:
+            return json.load(open(mp, encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+def _write_marker(folder, kind, data):
+    with open(_marker_path(folder, kind), "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _split_novel(text):
+    """把整篇文本按标题拆成 [{title, content}] 章节列表。"""
+    lines = text.splitlines()
+    chapters = []
+    cur_title = None
+    cur_lines = []
+    for ln in lines:
+        if CHAPTER_RE.match(ln):
+            if cur_title is not None or cur_lines:
+                chapters.append({
+                    "title": (cur_title or f"第{len(chapters) + 1}章").strip(),
+                    "content": "\n".join(cur_lines).strip(),
+                })
+            cur_title = re.sub(r"^#+\s*", "", ln).strip()
+            cur_lines = []
+        else:
+            cur_lines.append(ln)
+    if cur_title is not None or cur_lines:
+        chapters.append({
+            "title": (cur_title or f"第{len(chapters) + 1}章").strip(),
+            "content": "\n".join(cur_lines).strip(),
+        })
+    if not chapters:
+        chapters.append({"title": None, "content": text.strip()})
+    return chapters
+
+
+def _next_chapter_number(project_id):
+    mx = db.session.query(db.func.max(NovelChapter.chapter_number)).filter_by(
+        project_id=project_id
+    ).scalar() or 0
+    return mx
+
+
+@bp.route("/<int:project_id>/scan-novels", methods=["POST"])
+def scan_novels(project_id):
+    """扫描 04_Story/ 下的 .txt/.md，按标题拆分章节并建库。"""
+    proj, proj_path = _proj_path(project_id)
+    if not proj:
+        return jsonify({"error": "项目不存在"}), 404
+    story_dir = os.path.join(proj_path, "04_Story")
+    os.makedirs(story_dir, exist_ok=True)
+    marker = _read_marker(story_dir, "novel")
+    imported, skipped = [], []
+    existing = {c.title for c in NovelChapter.query.filter_by(project_id=project_id).all()}
+    num = _next_chapter_number(project_id)
+
+    for fn in sorted(os.listdir(story_dir)):
+        if not fn.lower().endswith((".txt", ".md")) or fn.startswith("._"):
+            continue
+        fp = os.path.join(story_dir, fn)
+        if not os.path.isfile(fp):
+            continue
+        raw = open(fp, encoding="utf-8", errors="ignore").read()
+        h = hashlib.md5(raw.encode("utf-8", "ignore")).hexdigest()[:12]
+        if marker.get(fn) == h:
+            skipped.append(fn)
+            continue
+        for ch in _split_novel(raw):
+            title = (ch["title"] or os.path.splitext(fn)[0])[:200]
+            if title in existing:
+                continue
+            num += 1
+            nc = NovelChapter(
+                project_id=project_id, chapter_number=num, title=title,
+                summary="", content=ch["content"], status="draft",
+            )
+            nc.word_count = len(ch["content"] or "")
+            db.session.add(nc)
+            existing.add(title)
+            imported.append(title)
+        marker[fn] = h
+
+    db.session.commit()
+    _write_marker(story_dir, "novel", marker)
+    return jsonify({
+        "ok": True, "imported": imported, "imported_count": len(imported),
+        "skipped": skipped, "story_dir": story_dir,
+        "message": f"成功导入 {len(imported)} 个章节"
+        + (f"，跳过已导入 {len(skipped)} 个文件" if skipped else ""),
+    })
+
+
+@bp.route("/<int:project_id>/scan-scripts", methods=["POST"])
+def scan_scripts(project_id):
+    """扫描 03_Import/ 下的剧本 JSON，复制到 05_Script 并建库（按标题联动章节）。"""
+    proj, proj_path = _proj_path(project_id)
+    if not proj:
+        return jsonify({"error": "项目不存在"}), 404
+    import_dir = os.path.join(proj_path, "03_Import")
+    script_dir = os.path.join(proj_path, "05_Script")
+    os.makedirs(import_dir, exist_ok=True)
+    os.makedirs(script_dir, exist_ok=True)
+    marker = _read_marker(import_dir, "script")
+    imported, skipped = [], []
+    chapters = NovelChapter.query.filter_by(project_id=project_id).all()
+    title2ch = {c.title: c for c in chapters}
+    num = _next_chapter_number(project_id)
+
+    for fn in sorted(os.listdir(import_dir)):
+        if not fn.lower().endswith(".json") or fn.startswith("._"):
+            continue
+        fp = os.path.join(import_dir, fn)
+        if not os.path.isfile(fp):
+            continue
+        try:
+            data = json.load(open(fp, encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, dict) or ("scenes" not in data and "shots" not in data):
+            continue
+        raw = open(fp, encoding="utf-8", errors="ignore").read()
+        h = hashlib.md5(raw.encode("utf-8", "ignore")).hexdigest()[:12]
+        if marker.get(fn) == h:
+            skipped.append(fn)
+            continue
+
+        base = os.path.splitext(fn)[0].replace("_script", "")
+        ch = title2ch.get(base) or title2ch.get(os.path.splitext(fn)[0])
+        if not ch:
+            num += 1
+            ch = NovelChapter(
+                project_id=project_id, chapter_number=num, title=base[:200],
+                summary="", content="", status="draft",
+            )
+            ch.word_count = 0
+            db.session.add(ch)
+            db.session.flush()
+            title2ch[base] = ch
+
+        dst = os.path.join(script_dir, fn)
+        if not os.path.exists(dst):
+            shutil.copy2(fp, dst)
+        from web.models.database import ScriptModel
+        sm = ScriptModel(
+            chapter_id=None, novel_chapter_id=ch.id,
+            filename=fn, file_path=dst,
+            shot_count=len(data.get("shots", [])) or len(data.get("scenes", [])),
+        )
+        db.session.add(sm)
+        imported.append(fn)
+        marker[fn] = h
+
+    db.session.commit()
+    _write_marker(import_dir, "script", marker)
+    return jsonify({
+        "ok": True, "imported": imported, "imported_count": len(imported),
+        "skipped": skipped,
+        "message": f"成功导入 {len(imported)} 个剧本"
+        + (f"，跳过已导入 {len(skipped)} 个文件" if skipped else ""),
+    })
+
+
+@bp.route("/<int:project_id>/import-image", methods=["POST"])
+def import_image(project_id):
+    """上传资产图并支持自定义文件名存入 08_Image（文件名关系到资产匹配关键词）。"""
+    proj, proj_path = _proj_path(project_id)
+    if not proj:
+        return jsonify({"error": "项目不存在"}), 404
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify({"error": "缺少文件"}), 400
+
+    name = (request.form.get("asset_name") or os.path.splitext(file.filename)[0] or "asset").strip()
+    name = re.sub(r'[\\/:*?"<>|\r\n\t]+', "_", name)[:120]
+    ext = os.path.splitext(file.filename)[1].lower() or ".png"
+    if ext not in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"):
+        ext = ".png"
+
+    image_dir = os.path.join(proj_path, "08_Image")
+    os.makedirs(image_dir, exist_ok=True)
+    dst = os.path.join(image_dir, name + ext)
+    if os.path.exists(dst):
+        base, e = os.path.splitext(dst)
+        i = 1
+        while os.path.exists(f"{base}_{i}{e}"):
+            i += 1
+        dst = f"{base}_{i}{e}"
+    file.save(dst)
+    return jsonify({
+        "ok": True, "filename": os.path.basename(dst), "path": dst,
+        "message": f"已导入图片：{os.path.basename(dst)}",
+    })

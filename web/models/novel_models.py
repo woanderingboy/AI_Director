@@ -57,6 +57,8 @@ class NovelCharacter(db.Model):
     arc = db.Column(db.Text, default="")  # 人物弧光/成长线
     key_quotes = db.Column(db.Text, default="")  # 经典台词
     visual_prompt = db.Column(db.Text, default="")  # 视觉化提示词
+    consistency_lock = db.Column(db.Boolean, default=False)  # 角色一致性锁：开启后其锁定外观将注入每一帧提示词，防变脸
+    locked_prompt = db.Column(db.Text, default="")  # 锁定时注入的视觉描述（默认由外貌+视觉提示词合成）
     notes = db.Column(db.Text, default="")
     created_time = db.Column(db.DateTime, default=datetime.now)
     updated_time = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
@@ -69,7 +71,10 @@ class NovelCharacter(db.Model):
             "background": self.background, "ability": self.ability,
             "motivation": self.motivation, "relationships": self.relationships,
             "arc": self.arc, "key_quotes": self.key_quotes,
-            "visual_prompt": self.visual_prompt, "notes": self.notes,
+            "visual_prompt": self.visual_prompt,
+            "consistency_lock": self.consistency_lock,
+            "locked_prompt": self.locked_prompt,
+            "notes": self.notes,
             "created_time": str(self.created_time) if self.created_time else None,
             "updated_time": str(self.updated_time) if self.updated_time else None,
         }

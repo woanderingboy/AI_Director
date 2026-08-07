@@ -1,0 +1,42 @@
+# ── 环境变量与密钥（含真实 API Key，绝对禁止提交） ──
+.env
+.env.local
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ── 运行产物 ──
+04_Output/*.db
+04_Output/*.db-journal
+04_Output/*.log
+server.log
+
+# ── 编辑器/系统 ──
+.vscode/
+.idea/
+.DS_Store
+*.swp
+.workbuddy/
+
+# ── 测试/临时产物（压力测试遗留，不提交） ──
+=1.0.0
+_app_check.js
+_probe_img.png
+resp_air.json
+字幕测试语音_subtitledTEMP_MPY_wvf_snd.mp4
+02_Projects/__pkgtest__/
+02_Projects/__pkgtest2__/
+02_Projects/_stress_*/
+
+# 04_Output 临时/压力测试产物（下划线前缀均为临时文件）
+04_Output/_stress_*
+04_Output/_bg.png
+04_Output/_check.js
+
+# 项目目录内压力测试遗留脚本
+**/__stress_*

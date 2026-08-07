@@ -1,0 +1,21 @@
+{
+  "shot_id": 4,
+  "scene_id": 2,
+  "video_prompt": "电影级画面，中景，暴雨夜，街角，中年满脸胡茬的老周穿褪色旧消防队外套站在堆满罐头玩具的改装三轮旁，苏晚警惕务实将林小满塞上车斗，林小满面容憔悴惊恐，冷色调，末日废土感，【角色一致性锁定·老周】寸头灰白短发，方脸，左颊有旧烧伤疤痕，深蓝工装，体格壮硕；realistic, buzz-cut grey hair, square face, old burn scar on left cheek, dark-blue workwear, burly，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+  "negative_prompt": "晴天，明亮，干净整洁，低质量，模糊，卡通，动漫，色彩饱和度过高",
+  "camera": "固定镜头，中景",
+  "lighting": "三轮车旁微弱暖光手电筒，主环境冷暗",
+  "duration": "15s",
+  "mood": "紧张，转瞬即逝的希望与新的危机",
+  "characters": [
+    "老周",
+    "苏晚",
+    "林小满"
+  ],
+  "location": "街角",
+  "locked_characters": [
+    "老周",
+    "苏晚",
+    "林小满"
+  ]
+}

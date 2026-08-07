@@ -1,0 +1,130 @@
+{
+  "project": "末日女子生存指南",
+  "export_time": "2026-08-07 19:43:50",
+  "shots": [
+    {
+      "file": "第47天·别做那个好人_prompt_S01.json",
+      "video_prompt": "电影级画面，全景构图，暴雨夜，江城解放路积水街道，墨绿色及踝积水，28岁短发女子苏晚身穿深色冲锋衣背着登山包戴口罩眼神冷冽，踩水前行，身后19岁憔悴女子林小满穿脏污便服浑身发抖紧紧揪着苏晚衣角，巷口阴影，压抑冷峻氛围，冷色调，高对比度，赛博朋克末日废土风，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+      "negative_prompt": "卡通，动漫，低质量，模糊，变形，多余的手指，光线明亮，晴天，现代繁华都市，不相关物体",
+      "camera": "缓慢向前推镜头，全景转近景",
+      "duration": "15s",
+      "matched_asset": null
+    },
+    {
+      "file": "第47天·别做那个好人_prompt_S02.json",
+      "video_prompt": "电影级画面，近景特写，暴雨夜，翻倒的垃圾桶，快递员丧尸身穿破旧快递服，动作僵硬机械地在垃圾里翻找，丧尸转头，半张脸灰白溃烂，眼眶内有异物蠕动，阴森恐怖氛围，冷绿色调，雨水冲刷面庞，微距细节，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+      "negative_prompt": "正常人脸，健康皮肤，阳光明媚，低质量，模糊，卡通，动漫，明亮色调",
+      "camera": "镜头缓慢平移，近景转特写",
+      "duration": "15s",
+      "matched_asset": null
+    },
+    {
+      "file": "第47天·别做那个好人_prompt_S03.json",
+      "video_prompt": "电影级画面，中景动作，暴雨夜，苏晚毫不犹豫拔出腰后改装消防斧，动作果断凌厉，一斧劈中丧尸膝弯，丧尸倒地，第二斧精准砸向颈侧，雨水飞溅，动作电影质感，冷峻色调，高动态模糊，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+      "negative_prompt": "慢动作，软弱无力，低质量，模糊，卡通，动漫，多余肢体，不自然姿势",
+      "camera": "快速跟拍，轻微手持晃动感",
+      "duration": "10s",
+      "matched_asset": null
+    },
+    {
+      "file": "第47天·别做那个好人_prompt_S04.json",
+      "video_prompt": "电影级画面，中景，暴雨夜，街角，中年满脸胡茬的老周穿褪色旧消防队外套站在堆满罐头玩具的改装三轮旁，苏晚警惕务实将林小满塞上车斗，林小满面容憔悴惊恐，冷色调，末日废土感，【角色一致性锁定·老周】寸头灰白短发，方脸，左颊有旧烧伤疤痕，深蓝工装，体格壮硕；realistic, buzz-cut grey hair, square face, old burn scar on left cheek, dark-blue workwear, burly，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+      "negative_prompt": "晴天，明亮，干净整洁，低质量，模糊，卡通，动漫，色彩饱和度过高",
+      "camera": "固定镜头，中景",
+      "duration": "15s",
+      "matched_asset": null
+    },
+    {
+      "file": "第47天·别做那个好人_prompt_S05.json",
+      "video_prompt": "电影级画面，近景特写，老周掀开三轮车上的油布，露出一台发电机和半箱柴油，老周满脸胡茬带点戏谑仰望天空，雨水打在脸上，细节丰富，冷峻色调，工业废土风，【角色一致性锁定·老周】寸头灰白短发，方脸，左颊有旧烧伤疤痕，深蓝工装，体格壮硕；realistic, buzz-cut grey hair, square face, old burn scar on left cheek, dark-blue workwear, burly，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+      "negative_prompt": "低质量，模糊，变形，卡通，动漫，光线明亮，干净无污渍",
+      "camera": "缓慢推镜头至特写",
+      "duration": "15s",
+      "matched_asset": null
+    },
+    {
+      "file": "第47天·别做那个好人_prompt_S06.json",
+      "video_prompt": "电影级画面，全景，暴雨夜空，林小满震惊地指向天空，远处江面，三架涂着红十字的无人机掠过，投下成串的照明弹，照亮夜空，强烈的明暗对比，史诗感，冷色调，【角色一致性锁定·老周】寸头灰白短发，方脸，左颊有旧烧伤疤痕，深蓝工装，体格壮硕；realistic, buzz-cut grey hair, square face, old burn scar on left cheek, dark-blue workwear, burly，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+      "negative_prompt": "白天，低质量，模糊，卡通，动漫，无无人机，无照明弹",
+      "camera": "镜头向上摇，全景转远景",
+      "duration": "14s",
+      "matched_asset": null
+    },
+    {
+      "file": "第47天·别做那个好人_prompt_S07.json",
+      "video_prompt": "电影级画面，全景转远景，暴雨夜，苏晚将带血消防斧别回腰后握紧车把，发动改装三轮车，三轮车在雨幕中冲向江边渡口，三个身影在雨中疾驰，身后城市建筑一盏接一盏熄灭灯光陷入黑暗，决绝苍凉氛围，冷色调，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·老周】寸头灰白短发，方脸，左颊有旧烧伤疤痕，深蓝工装，体格壮硕；realistic, buzz-cut grey hair, square face, old burn scar on left cheek, dark-blue workwear, burly，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+      "negative_prompt": "白天，晴天，繁华城市霓虹灯，低质量，模糊，卡通，动漫，光线明亮",
+      "camera": "镜头拉远，跟随三轮车后退，远景",
+      "duration": "11s",
+      "matched_asset": null
+    }
+  ],
+  "assets": [
+    {
+      "filename": "第47天·别做那个好人_prompt_S01.png",
+      "category": "图片",
+      "keyword": "",
+      "source": "project"
+    },
+    {
+      "filename": "第47天·别做那个好人_prompt_S02.png",
+      "category": "图片",
+      "keyword": "",
+      "source": "project"
+    },
+    {
+      "filename": "第47天·别做那个好人_prompt_S03.png",
+      "category": "图片",
+      "keyword": "",
+      "source": "project"
+    },
+    {
+      "filename": "第47天·别做那个好人_prompt_S04.png",
+      "category": "图片",
+      "keyword": "",
+      "source": "project"
+    },
+    {
+      "filename": "第47天·别做那个好人_prompt_S05.png",
+      "category": "图片",
+      "keyword": "",
+      "source": "project"
+    },
+    {
+      "filename": "第47天·别做那个好人_prompt_S06.png",
+      "category": "图片",
+      "keyword": "",
+      "source": "project"
+    },
+    {
+      "filename": "第47天·别做那个好人_prompt_S07.png",
+      "category": "图片",
+      "keyword": "",
+      "source": "project"
+    },
+    {
+      "filename": "video_consistency.json",
+      "category": "视频",
+      "keyword": "",
+      "source": "project"
+    },
+    {
+      "filename": "末日女子生存指南_preview.mp4",
+      "category": "视频",
+      "keyword": "",
+      "source": "project"
+    },
+    {
+      "filename": "末日女子生存指南_preview_subtitled.mp4",
+      "category": "视频",
+      "keyword": "",
+      "source": "project"
+    },
+    {
+      "filename": "末日女子生存指南_preview_subtitled.srt",
+      "category": "视频",
+      "keyword": "",
+      "source": "project"
+    }
+  ]
+}

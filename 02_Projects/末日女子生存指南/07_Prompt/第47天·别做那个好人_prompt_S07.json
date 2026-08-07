@@ -1,0 +1,21 @@
+{
+  "shot_id": 7,
+  "scene_id": 3,
+  "video_prompt": "电影级画面，全景转远景，暴雨夜，苏晚将带血消防斧别回腰后握紧车把，发动改装三轮车，三轮车在雨幕中冲向江边渡口，三个身影在雨中疾驰，身后城市建筑一盏接一盏熄灭灯光陷入黑暗，决绝苍凉氛围，冷色调，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·老周】寸头灰白短发，方脸，左颊有旧烧伤疤痕，深蓝工装，体格壮硕；realistic, buzz-cut grey hair, square face, old burn scar on left cheek, dark-blue workwear, burly，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+  "negative_prompt": "白天，晴天，繁华城市霓虹灯，低质量，模糊，卡通，动漫，光线明亮",
+  "camera": "镜头拉远，跟随三轮车后退，远景",
+  "lighting": "三轮车尾灯微弱红光，城市逐渐熄灭的灯光，黑暗吞噬",
+  "duration": "11s",
+  "mood": "决绝，苍凉",
+  "characters": [
+    "苏晚",
+    "老周",
+    "林小满"
+  ],
+  "location": "通往江边渡口的街道",
+  "locked_characters": [
+    "苏晚",
+    "老周",
+    "林小满"
+  ]
+}

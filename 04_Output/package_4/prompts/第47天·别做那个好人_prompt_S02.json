@@ -1,0 +1,20 @@
+{
+  "shot_id": 2,
+  "scene_id": 1,
+  "video_prompt": "电影级画面，近景特写，暴雨夜，翻倒的垃圾桶，快递员丧尸身穿破旧快递服，动作僵硬机械地在垃圾里翻找，丧尸转头，半张脸灰白溃烂，眼眶内有异物蠕动，阴森恐怖氛围，冷绿色调，雨水冲刷面庞，微距细节，【角色一致性锁定·苏晚】冷白肤色，黑色长直发，常戴医用口罩，穿改制军绿冲锋衣，身形瘦削挺拔，眼神冷静锐利如手术刀；realistic cinematic, pale cold skin, long straight black hair, medical mask, modified military-green windbreaker, slender upright figure, sharp calm eyes，【角色一致性锁定·林小满】十九岁少女，齐肩栗色卷发，圆脸杏眼，鹅黄色连帽卫衣，神情怯懦依赖",
+  "negative_prompt": "正常人脸，健康皮肤，阳光明媚，低质量，模糊，卡通，动漫，明亮色调",
+  "camera": "镜头缓慢平移，近景转特写",
+  "lighting": "顶光投射，面部阴影浓重，冷色调微光",
+  "duration": "15s",
+  "mood": "压抑，冷峻，危机四伏",
+  "characters": [
+    "苏晚",
+    "林小满",
+    "快递员丧尸"
+  ],
+  "location": "江城解放路积水街道",
+  "locked_characters": [
+    "苏晚",
+    "林小满"
+  ]
+}

@@ -4,21 +4,43 @@
 
 ## 技术栈
 
-- **后端**: Python 3.12+ / Flask / SQLAlchemy (SQLite)
-- **前端**: 原生 JS 单页应用 (无框架)
+- **后端**: Python 3.10+（已在 3.13 验证）/ Flask / SQLAlchemy (SQLite)
+- **前端**: 原生 JS 单页应用 (无框架，**无需 Node / 无构建步骤**)
 - **大模型**: OpenAI 兼容 API 直连，支持 6 个服务商
+- **依赖管理**: 纯 pip，`requirements.txt` 即完整依赖清单
+
+> 说明：本项目前端为零构建的原生 JS，运行只需 Python，无需 Node.js。
+> 若你从其他脚手架迁移而来保留了 `package.json`，本仓库前端并不依赖它。
+
+## 运行环境要求
+
+| 依赖 | 版本要求 | 用途 |
+|------|----------|------|
+| Python | ≥ 3.10（推荐 3.10 ~ 3.13） | 运行 Flask 后端 |
+| pip | 随 Python 自带 | 安装依赖 |
+| 大模型 API Key | 火山引擎 / DeepSeek / OpenAI 等 | 真实生成（可选，离线模式可免） |
+| Node.js | **非必须** | 前端无需构建；仅在你自行接入构建工具时需要 |
 
 ## 快速开始
 
 ```bash
-# 1. 安装依赖
+# 1. （推荐）创建虚拟环境并安装依赖
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# 2. 启动服务
+# 2. 配置环境变量（二选一）
+#   方案 A · 真实模型：复制模板并填入你的 Key
+cp .env.example .env               # 然后编辑 .env，填入 VOLC_API_KEY 等
+#   方案 B · 离线体验：直接设置环境变量（无需任何 Key）
+#   Windows(PowerShell):  $env:AI_DIRECTOR_OFFLINE="1"
+#   Linux/macOS:          export AI_DIRECTOR_OFFLINE=1
+
+# 3. 启动服务
 python app.py
 # 浏览器访问 http://127.0.0.1:5000
 
-# 3. 离线模式（不调真实 LLM，用 Mock 数据）
+# 4. 离线模式（不调真实 LLM，用 Mock 数据跑通全链路）
 AI_DIRECTOR_OFFLINE=1 python app.py
 ```
 
@@ -128,10 +150,24 @@ AI_Director/
 | DeepSeek | DEEPSEEK_API_KEY | deepseek-chat |
 | 智谱 GLM | GLM_API_KEY | glm-4-flash |
 | 通义千问 | QWEN_API_KEY | qwen-max |
-| 火山引擎 | VOLC_API_KEY | doubao-pro-32k |
+| 火山引擎 | VOLC_API_KEY | glm-5-2-260617 |
 | 自定义 | - | 用户自定义 |
 
-配置方式：在前端「🤖 大模型配置」页面填写 API Key。
+### 通过 .env 自动注入（推荐）
+
+复制 `.env.example` 为 `.env`，填入真实值后启动时**自动**注入，无需在前端手动填写：
+
+```ini
+AI_DIRECTOR_OFFLINE=0                       # 0=真实模型, 1=Mock
+VOLC_API_KEY=ark-xxxxxxxx                   # 火山引擎方舟 Key
+VOLC_TEXT_MODELS=glm-5-2-260617,doubao-seed-2-1-turbo-260628   # 文本模型，逗号分隔
+VOLC_IMAGE_MODELS=doubao-seedream-5-0-pro-260628,doubao-seedream-5-0-260128  # 图片模型，额度有限
+VOLC_DEFAULT=1                              # 1=将火山引擎设为默认服务商
+```
+
+`create_app` 启动时会读取 `.env`，把 `VOLC_API_KEY` 写进 `volcengine` 服务商、按 `VOLC_TEXT_MODELS` 刷新模型清单，并在 `VOLC_DEFAULT=1` 时把火山引擎设为全局默认服务商。图片模型仅记录备用（当前 `draw_images` 为占位、未真正调用生图接口，避免浪费额度）。
+
+配置方式：`.env` 自动注入 **或** 前端「🤖 大模型配置」页面填写 API Key（二选一，前端填写会写入数据库并覆盖）。
 
 ## 版本管理
 

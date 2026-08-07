@@ -1,0 +1,13 @@
+{
+  "title": "第一章 黎明之前",
+  "scenes": [
+    { "scene_id": 1, "description": "陈默蹲在墙根，烟头明灭，眉骨旧疤", "location": "山坳墙根", "characters": ["陈默"] },
+    { "scene_id": 2, "description": "回忆三年前雨夜，妹妹被黑车带走", "location": "回忆/雨夜街道", "characters": ["陈默", "妹妹"] }
+  ],
+  "shots": [
+    { "shot_id": 1, "duration": 12, "camera": "近景", "description": "陈默侧脸特写，烟头照亮旧疤" },
+    { "shot_id": 2, "duration": 14, "camera": "全景", "description": "雨夜黑车驶离，妹妹伸手" }
+  ],
+  "total_duration": 26,
+  "shot_count": 2
+}

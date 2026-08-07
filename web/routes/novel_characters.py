@@ -56,9 +56,29 @@ def update_character(char_id):
     data = request.get_json()
     for field in ["name", "role", "gender", "age", "appearance", "personality",
                   "background", "ability", "motivation", "relationships",
-                  "arc", "key_quotes", "visual_prompt", "notes"]:
+                  "arc", "key_quotes", "visual_prompt", "consistency_lock",
+                  "locked_prompt", "notes"]:
         if field in data:
             setattr(char, field, data[field])
+    db.session.commit()
+    return jsonify(char.to_dict())
+
+
+@bp.route("/<int:project_id>/characters/<int:char_id>/lock", methods=["POST"])
+def toggle_character_lock(project_id, char_id):
+    """切换角色一致性锁；开启时若未填写锁定描述则自动由外貌+视觉提示词合成"""
+    char = NovelCharacter.query.get_or_404(char_id)
+    if char.project_id != project_id:
+        return jsonify({"error": "角色不属于该项目"}), 403
+    data = request.get_json(silent=True) or {}
+    new_state = data.get("consistency_lock", not char.consistency_lock)
+    char.consistency_lock = bool(new_state)
+
+    # 自动合成锁定描述：优先用已填 locked_prompt，否则用外貌+视觉提示词拼合
+    if char.consistency_lock:
+        if not (char.locked_prompt or "").strip():
+            parts = [x for x in [char.appearance, char.visual_prompt] if x and x.strip()]
+            char.locked_prompt = "；".join(parts)
     db.session.commit()
     return jsonify(char.to_dict())
 

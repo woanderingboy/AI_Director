@@ -1,5 +1,6 @@
 """小说创作 AI 服务 - 各阶段独立配置"""
 import json
+import os
 from web.services.llm_client import LLMClient
 
 
@@ -7,7 +8,7 @@ def _get_client_for_stage(stage, project_id=None):
     """根据阶段获取独立配置的 LLM 客户端"""
     from web.models.database import Provider, ProjectConfig
 
-    provider_key = "glm"
+    provider_key = os.environ.get("AI_DIRECTOR_DEFAULT_PROVIDER", "glm")
     api_key = ""
     model = None
     temperature = 0.7
