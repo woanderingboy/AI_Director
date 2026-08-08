@@ -1,6 +1,20 @@
 """小说创作模块 - 数据库模型"""
 from datetime import datetime
-from web.models.database import db
+from web.models.database import db, ProjectModel
+
+
+def bump_novel_version(project_id):
+    """小说章节/关键节点被修改时，使项目 novel_version +1，用于标记下游产物过期。"""
+    if not project_id:
+        return
+    try:
+        p = ProjectModel.query.get(project_id)
+        if p:
+            p.novel_version = (p.novel_version or 0) + 1
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+
 
 
 class WorldSetting(db.Model):

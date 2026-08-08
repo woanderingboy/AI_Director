@@ -54,6 +54,34 @@ def _migrate_consistency_lock(db):
         pass
 
 
+def _migrate_novel_version(db):
+    """为 projects / scripts 表补齐 novel_version / stale 列（仅新增，不删数据）"""
+    try:
+        from sqlalchemy import text, inspect
+        inspector = inspect(db.engine)
+
+        proj_existing = {c["name"] for c in inspector.get_columns("projects")}
+        proj_needed = {"novel_version": "INTEGER DEFAULT 0"}
+        for col, ddl in proj_needed.items():
+            if col not in proj_existing:
+                with db.engine.connect() as conn:
+                    conn.execute(text(f"ALTER TABLE projects ADD COLUMN {col} {ddl}"))
+                    conn.commit()
+
+        scr_existing = {c["name"] for c in inspector.get_columns("scripts")}
+        scr_needed = {
+            "novel_version": "INTEGER DEFAULT 0",
+            "stale": "BOOLEAN DEFAULT 0",
+        }
+        for col, ddl in scr_needed.items():
+            if col not in scr_existing:
+                with db.engine.connect() as conn:
+                    conn.execute(text(f"ALTER TABLE scripts ADD COLUMN {col} {ddl}"))
+                    conn.commit()
+    except Exception:
+        pass
+
+
 def create_app(config_overrides=None):
     app = Flask(
         __name__,
@@ -132,6 +160,8 @@ def create_app(config_overrides=None):
         db.create_all()
         # 列迁移：为已存在的 novel_characters 表补齐一致性锁字段（不破坏已有数据）
         _migrate_consistency_lock(db)
+        # 列迁移：为 projects / scripts 表补齐 novel_version / stale（下游过期追踪）
+        _migrate_novel_version(db)
         from .models.database import Provider
         from .services.llm_client import LLMClient
         for key, info in LLMClient.PROVIDERS.items():

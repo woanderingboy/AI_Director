@@ -28,6 +28,19 @@ def list_stages():
     return jsonify(STAGES)
 
 
+@bp.route("/prompt-templates", methods=["GET"])
+def prompt_templates():
+    """返回各阶段的标准默认指令模版（用户自定义会叠加在默认之后，可在此基础上修改）。"""
+    from web.services.prompt_templates import DEFAULT_PROMPTS
+    data = {}
+    for key, label in STAGES.items():
+        data[key] = {
+            "label": label,
+            "default": DEFAULT_PROMPTS.get(key, ""),
+        }
+    return jsonify(data)
+
+
 @bp.route("/projects/<int:project_id>/config", methods=["GET"])
 def get_config(project_id):
     config = ProjectConfig.query.filter_by(project_id=project_id).first()

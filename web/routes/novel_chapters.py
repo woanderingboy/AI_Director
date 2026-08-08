@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify
 from web.models.database import db
 from web.models.novel_models import (
     NovelChapter, NovelScene, PlotOutline, PlotPoint,
-    WorldSetting, NovelCharacter
+    WorldSetting, NovelCharacter, bump_novel_version
 )
 
 bp = Blueprint("novel_chapters", __name__)
@@ -51,6 +51,8 @@ def update_chapter(ch_id):
     if "content" in data:
         chapter.word_count = len(data["content"] or "")
     db.session.commit()
+    # 小说内容被改动 → 递增项目 novel_version，标记下游产物（剧本/提示词/图/视频）过期
+    bump_novel_version(chapter.project_id)
     return jsonify(chapter.to_dict())
 
 
@@ -129,6 +131,8 @@ def update_scene(scene_id):
         if field in data:
             setattr(scene, field, data[field])
     db.session.commit()
+    # 场景也属于小说内容，改动后同样标记下游过期
+    bump_novel_version(scene.project_id)
     return jsonify(scene.to_dict())
 
 

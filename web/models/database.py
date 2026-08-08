@@ -10,6 +10,7 @@ class ProjectModel(db.Model):
     name = db.Column(db.String(200), nullable=False, unique=True)
     description = db.Column(db.Text, default="")
     genre = db.Column(db.String(50), default="剧情")
+    novel_version = db.Column(db.Integer, default=0)  # 小说/关键节点编辑时递增；下游产物据此判断是否过期
     created_time = db.Column(db.DateTime, default=datetime.now)
     updated_time = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
@@ -21,6 +22,7 @@ class ProjectModel(db.Model):
             "name": self.name,
             "description": self.description,
             "genre": self.genre,
+            "novel_version": self.novel_version or 0,
             "created_time": self.created_time.strftime("%Y-%m-%d %H:%M:%S") if self.created_time else None,
             "updated_time": self.updated_time.strftime("%Y-%m-%d %H:%M:%S") if self.updated_time else None,
             "chapter_count": len(self.chapters),
@@ -60,6 +62,8 @@ class ScriptModel(db.Model):
     filename = db.Column(db.String(300), nullable=False)
     file_path = db.Column(db.String(500), nullable=False)
     shot_count = db.Column(db.Integer, default=0)
+    novel_version = db.Column(db.Integer, default=0)  # 剧本生成时基于的小说版本
+    stale = db.Column(db.Boolean, default=False)  # 上游小说已更新、本剧本待重生成
     created_time = db.Column(db.DateTime, default=datetime.now)
 
     def to_dict(self):
@@ -70,6 +74,8 @@ class ScriptModel(db.Model):
             "filename": self.filename,
             "file_path": self.file_path,
             "shot_count": self.shot_count,
+            "novel_version": self.novel_version or 0,
+            "stale": bool(self.stale),
             "created_time": self.created_time.strftime("%Y-%m-%d %H:%M:%S") if self.created_time else None,
         }
 

@@ -117,6 +117,13 @@ a{color:var(--purple);text-decoration:none}
 .badge--rose{background:var(--rose-dim);color:var(--rose)}
 .badge--gray{background:var(--bg4);color:var(--t3)}
 
+/* Alert (新鲜度提示) */
+.alert{border-radius:var(--r2);padding:12px 14px;border:1px solid var(--border)}
+.alert--amber{background:var(--amber-dim);border-color:var(--amber);color:var(--amber)}
+.alert--green{background:var(--green-dim);border-color:var(--green);color:var(--green)}
+.alert .text-sm{line-height:1.6}
+.alert .text-muted{opacity:.85}
+
 /* Progress bar */
 .progress{height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;margin:8px 0 6px}
 .progress__fill{height:100%;border-radius:2px;transition:width .3s}
@@ -362,6 +369,7 @@ const S = {
   // Novel module
   novelProject: null,
   novelStage: 'world',  // world/character/outline/chapters/write/chat
+  freshness: null,      // 下游产物新鲜度（/api/projects/<id>/freshness）
   novelWorld: null,
   novelCharacters: [],
   novelOutline: null,
@@ -701,6 +709,8 @@ async function loadStageConfigs() {
 
   let stages = {};
   try { stages = await api('/stages'); } catch(e) {}
+  let templates = {};
+  try { templates = await api('/prompt-templates'); } catch(e) {}
 
   const stageKeys = Object.keys(stages);
   const configs = {};
@@ -714,8 +724,15 @@ async function loadStageConfigs() {
 
   container.innerHTML = stageKeys.map(key => {
     const sc = configs[key] || {};
+    const def = (templates[key] && templates[key].default) || '';
+    const defHtml = def ? `
+        <div class="form-group">
+          <label>📌 标准默认指令（只读，仅供参考；你的修改会追加在其后）</label>
+          <div id="tplDef-${key}" style="white-space:pre-wrap;background:rgba(127,127,140,.10);border:1px solid var(--border,#3a3a45);border-radius:8px;padding:10px;font-size:.76rem;line-height:1.55;max-height:200px;overflow:auto;color:var(--t2,#9aa);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace">${esc(def)}</div>
+          <div class="text-xs text-muted" style="margin-top:4px">在下方「自定义 System Prompt」中编写补充/覆盖指令，保存后即对该环节生效；留空则完全使用标准默认。</div>
+        </div>` : '';
     return `
-      <div class="card mb-2" style="max-width:700px" data-stage="${key}">
+      <div class="card mb-2" style="max-width:760px" data-stage="${key}">
         <div class="flex items-center justify-between" style="cursor:pointer" data-toggle="${key}">
           <div class="section-title" style="font-size:.88rem">${stages[key]}</div>
           <span class="text-xs text-muted" id="stageStatus-${key}">${sc.model ? '模型: ' + sc.model : '使用全局默认'}</span>
@@ -737,9 +754,10 @@ async function loadStageConfigs() {
               <input type="number" id="scTokens-${key}" value="${sc.max_tokens ?? ''}" placeholder="（使用全局）" min="256" max="32768">
             </div>
           </div>
+          ${defHtml}
           <div class="form-group">
             <label>自定义 System Prompt（追加到默认指令之后）</label>
-            <textarea id="scPrompt-${key}" placeholder="为此环节编写专属的 AI 指令..." style="min-height:100px;font-size:.82rem">${esc(sc.system_prompt||'')}</textarea>
+            <textarea id="scPrompt-${key}" placeholder="为此环节编写专属的 AI 指令（留空则使用标准默认）..." style="min-height:100px;font-size:.82rem">${esc(sc.system_prompt||'')}</textarea>
           </div>
           <button class="btn btn--primary btn--sm" data-save-stage="${key}">💾 保存此环节配置</button>
         </div>
@@ -777,13 +795,13 @@ async function loadStageConfigs() {
 
 /* ═══════════ GLOBAL ASSETS ═══════════ */
 function renderGlobalAssets(c) {
-  const cats = ['Camera', 'Transition', 'Emotion', 'Lighting', 'Style', 'Action'];
-  const catLabels = { Camera: '📷 运镜', Transition: '🔀 转场', Emotion: '🎭 情绪', Lighting: '💡 灯光', Style: '🎨 风格', Action: '🏃 动作' };
-  const catIcons = { Camera: '📹', Transition: '🔀', Emotion: '🎭', Lighting: '💡', Style: '🎨', Action: '🏃' };
+  const cats = ['Camera', 'Transition', 'Emotion', 'Lighting', 'Style', 'Action', 'Template'];
+  const catLabels = { Camera: '📷 运镜', Transition: '🔀 转场', Emotion: '🎭 情绪', Lighting: '💡 灯光', Style: '🎨 风格', Action: '🏃 动作', Template: '📋 模板' };
+  const catIcons = { Camera: '📹', Transition: '🔀', Emotion: '🎭', Lighting: '💡', Style: '🎨', Action: '🏃', Template: '📋' };
 
   c.innerHTML = `
     <div class="section-title mb-2">🗂 全局资产库</div>
-    <div class="text-sm text-muted mb-4">预置的运镜/转场/情绪/灯光/风格/动作资产，生成提示词时自动参考。可在目录中添加 YAML 文件扩展。</div>
+    <div class="text-sm text-muted mb-4">预置的运镜/转场/情绪/灯光/风格/动作/模板资产，生成提示词时自动参考。可在目录中添加 YAML 文件扩展。</div>
     <div class="filters">${cats.map(cat => `<div class="filter ${cat==='Camera'?'active':''}" data-cat="${cat}">${catLabels[cat] || cat}</div>`).join('')}</div>
     <div id="assetContent"></div>
   `;
@@ -805,12 +823,13 @@ function renderGlobalAssetList(category) {
     return;
   }
   ac.innerHTML = `<div class="asset-grid">${items.map(a => `
-    <div class="asset-card fade-up gasset-card gasset-card--${catColor(a.category)}" style="cursor:pointer" data-cat="${a.category}" data-file="${a.filename}">
+    <div class="asset-card fade-up gasset-card gasset-card--${catColor(a.category)}" style="cursor:pointer" data-cat="${a.category}" data-file="${a.filename}" data-id="${a.id || a.category + '/' + a.filename}">
       <div class="asset-card__image" style="font-size:1.5rem">${getCategoryIcon(a.category)}</div>
       <div class="asset-card__body">
         <div class="asset-card__name">${esc(a.name)}</div>
-        <div class="asset-card__meta"><span class="gasset-tag gasset-tag--${catColor(a.category)}">${esc(a.category)}</span><span class="asset-card__prompt-tag">可用</span></div>
+        <div class="asset-card__meta"><span class="gasset-tag gasset-tag--${catColor(a.category)}">${esc(a.category)}</span>${a.prompt ? '<span class="asset-card__prompt-tag">含提示词</span>' : '<span class="asset-card__prompt-tag">可用</span>'}</div>
         ${a.description ? `<div class="asset-card__desc">${esc(a.description)}</div>` : ''}
+        ${a.prompt ? `<div class="asset-card__prompt">🎯 ${esc(a.prompt)}</div>` : ''}
       </div>
     </div>
   `).join('')}</div>`;
@@ -1013,8 +1032,10 @@ function renderTasks(c) {
     return;
   }
   list.innerHTML = S.tasks.map(t => {
-    const statusColors = { pending: 'gray', running: 'blue', success: 'green', fail: 'rose', cancelled: 'amber' };
-    const statusLabels = { pending: '等待中', running: '运行中', success: '成功', fail: '失败', cancelled: '已取消' };
+    const statusColors = { pending: 'gray', running: 'blue', success: 'green', fail: 'rose', cancelled: 'amber', paused: 'cyan' };
+    const statusLabels = { pending: '等待中', running: '运行中', success: '成功', fail: '失败', cancelled: '已取消', paused: '已暂停' };
+    const running = t.status === 'running';
+    const paused = t.status === 'paused';
     return `
       <div class="task-item fade-up">
         <div class="task-item__info">
@@ -1027,17 +1048,26 @@ function renderTasks(c) {
           <div class="text-xs text-muted text-right">${t.progress}%</div>
         </div>
         <span class="badge badge--${statusColors[t.status] || 'gray'}">${statusLabels[t.status] || t.status}</span>
-        ${t.status === 'running' ? `<button class="btn btn--sm btn--rose" data-id="${t.id}" data-action="stop">停止</button>` : ''}
+        <div class="flex gap-2">
+          ${running ? `<button class="btn btn--sm btn--amber" data-id="${t.id}" data-action="pause">⏸ 暂停</button>` : ''}
+          ${paused ? `<button class="btn btn--sm btn--green" data-id="${t.id}" data-action="resume">▶ 继续</button>` : ''}
+          ${(running || paused) ? `<button class="btn btn--sm btn--rose" data-id="${t.id}" data-action="stop">⏹ 停止</button>` : ''}
+        </div>
       </div>
     `;
   }).join('');
-  list.querySelectorAll('button[data-action="stop"]').forEach(btn => {
-    btn.onclick = async () => {
-      await api(`/tasks/${btn.dataset.id}/stop`, { method: 'POST' });
-      toast('任务已停止');
-      loadTasks().then(() => renderTasks(c));
-    };
-  });
+  const wire = (action, method, msg) => {
+    list.querySelectorAll(`button[data-action="${action}"]`).forEach(btn => {
+      btn.onclick = async () => {
+        await api(`/tasks/${btn.dataset.id}/${action}`, { method: method });
+        toast(msg);
+        loadTasks().then(() => renderTasks(c));
+      };
+    });
+  };
+  wire('stop', 'POST', '任务已停止');
+  wire('pause', 'POST', '任务已暂停');
+  wire('resume', 'POST', '任务已继续');
 }
 
 /* ═══════════ PROMPT LIBRARY ═══════════ */
@@ -1512,6 +1542,28 @@ function showAddPointModal() {
 /* ──── 章节创作 ──── */
 function renderNovelChapters(c) {
   const chs = S.novelChapters;
+  const f = S.freshness;
+  let bannerHtml = '';
+  if (f && f.any_stale) {
+    const staleStages = [];
+    if (f.stages?.script?.stale) staleStages.push('剧本');
+    if (f.stages?.prompt?.stale) staleStages.push('提示词');
+    if (f.stages?.image?.stale) staleStages.push('图片');
+    if (f.stages?.video?.stale) staleStages.push('视频');
+    bannerHtml = `
+      <div class="alert alert--amber" style="margin-bottom:14px">
+        <div style="font-weight:600;margin-bottom:4px">⚠ 上游小说 / 关键节点已修改，下游产物待更新</div>
+        <div class="text-sm text-muted">以下产物基于「旧小说」生成，已过期：${staleStages.join('、') || '（无具体产物）'}。修改不会自动同步，请重跑下游以修复全部输出。</div>
+        <div class="flex gap-2 mt-2">
+          <button class="btn btn--rose btn--sm" id="btnRerunDownstream">🔄 从小说重跑下游（全流程）</button>
+        </div>
+      </div>`;
+  } else if (f) {
+    bannerHtml = `
+      <div class="alert alert--green" style="margin-bottom:14px">
+        <div class="text-sm">✅ 下游产物与当前小说版本一致（v${f.novel_version}），无需重跑。</div>
+      </div>`;
+  }
   c.innerHTML = `
     <div class="section-header"><div class="section-title">📖 章节列表</div>
       <div class="flex gap-2">
@@ -1520,9 +1572,15 @@ function renderNovelChapters(c) {
         <button class="btn btn--primary btn--sm" id="btnAddChapter">＋ 新建章节</button>
       </div>
     </div>
+    ${bannerHtml}
     <div class="text-xs text-muted mb-2">把小说 .txt/.md 放进 <code>02_Projects/{项目名}/04_Story/</code>，点「扫描导入」即可按标题自动拆分建章</div>
     <div id="novelChapterList"></div>
   `;
+
+  const brd = document.getElementById('btnRerunDownstream');
+  if (brd) brd.onclick = async () => {
+    await rerunDownstreamFromNovel();
+  };
 
   const list = document.getElementById('novelChapterList');
   if (!chs.length) {
@@ -1747,6 +1805,41 @@ function renderNovelChat(c) {
 }
 
 /* ──── Novel Data Loaders ──── */
+async function loadFreshness() {
+  if (!S.novelProject) return;
+  try {
+    S.freshness = await api(`/projects/${S.novelProject.id}/freshness`).catch(() => null);
+  } catch (e) { S.freshness = null; }
+}
+
+function staleBadgeHtml(stageKey, label) {
+  const st = S.freshness?.stages?.[stageKey];
+  if (st && st.stale) {
+    return ` <span class="badge badge--amber" title="基于旧小说生成，已过期">⚠ ${label}已过期</span>`;
+  }
+  return '';
+}
+
+async function rerunDownstreamFromNovel() {
+  if (!S.novelProject) return;
+  const chapters = S.novelChapters || [];
+  if (!chapters.length) { toast('暂无章节，无法重跑'); return; }
+  toast(`已提交 ${chapters.length} 个章节的全流程重跑，请在任务中心查看进度`);
+  for (const ch of chapters) {
+    await api('/pipeline/run', {
+      method: 'POST',
+      body: {
+        stage: 'pipeline.run_all',
+        project_name: S.novelProject.name,
+        project_id: S.novelProject.id,
+        chapter_id: ch.id,
+      },
+    }).catch(() => {});
+  }
+  // 重跑后刷新新鲜度（任务为后台执行，稍后复查）
+  setTimeout(async () => { await loadFreshness(); if (S.novelStage === 'chapters') renderNovelChapters(document.getElementById('novelContent')); }, 4000);
+}
+
 async function loadNovelData() {
   if (!S.novelProject) return;
   const pid = S.novelProject.id;
@@ -1764,6 +1857,7 @@ async function loadNovelData() {
     S.novelPlotPoints = points;
     S.novelChapters = chapters;
   } catch (e) { /* ignore */ }
+  await loadFreshness();
   renderNovelProject(document.getElementById('novelContent')?.parentElement?.querySelector('#novelContent') || document.getElementById('content'));
 }
 
@@ -2075,7 +2169,7 @@ async function loadPackageHistory() {
 /* ──── 剧本生成 ──── */
 function renderNovelScript(c) {
   c.innerHTML = `
-    <div class="text-sm text-muted mb-4">将小说章节转换为结构化剧本，自动估算时长并拆分为10-15秒分镜头。</div>
+    <div class="text-sm text-muted mb-4">将小说章节转换为结构化剧本，自动估算时长并拆分为10-15秒分镜头。${staleBadgeHtml('script', '剧本')}</div>
     <div class="flex gap-2 mb-3">
       <button class="btn btn--amber btn--sm" id="btnScanScript">📥 扫描导入剧本</button>
     </div>
@@ -2098,6 +2192,7 @@ function renderNovelScript(c) {
 async function loadScriptChapters() {
   const container = document.getElementById('scriptChapterList');
   if (!container) return;
+  await loadFreshness().catch(() => {});
   const chapters = S.novelChapters;
   if (!chapters.length) {
     container.innerHTML = '<div class="empty"><div class="empty__icon">📝</div><div class="empty__title">暂无章节</div><div class="empty__desc">请先在「章节创作」中添加小说内容</div></div>';
@@ -2221,8 +2316,12 @@ async function viewScriptDetail(filename) {
 
 /* ──── 分镜画布（提示词 ↔ 静帧 联动） ──── */
 function renderNovelStoryboard(c) {
+  const staleLine = (S.freshness && S.freshness.any_stale)
+    ? `<div class="alert alert--amber" style="margin-bottom:12px"><div class="text-sm">⚠ 上游小说已修改，以下产物待更新：${[['prompt','提示词'],['image','图片'],['video','视频']].filter(([k]) => S.freshness.stages?.[k]?.stale).map(([,l]) => l).join('、') || '（无）'}。请到「章节创作」点「从小说重跑下游」同步修复。</div></div>`
+    : '';
   c.innerHTML = `
-    <div class="text-sm text-muted mb-3">分镜画布：每张卡片把 <b>电影级提示词</b> 与 <b>AI 生成的静帧</b> 绑在一起，并标注命中的全局资产（机位/光线/风格…）与出场角色。点击卡片看大图与完整 Prompt；色块可反查参考资产。</div>
+    <div class="text-sm text-muted mb-3">分镜画布：每张卡片把 <b>电影级提示词</b> 与 <b>AI 生成的静帧</b> 绑在一起，并标注命中的全局资产（机位/光线/风格…）与出场角色。点击卡片看大图与完整 Prompt；色块可反查参考资产。${staleBadgeHtml('prompt', '提示词')}</div>
+    ${staleLine}
     <div class="sb-toolbar mb-3">
       <button class="btn btn--sm" id="sbToggleImg">🖼 仅看未出图</button>
       <span id="sbFilterBanner"></span>

@@ -1,6 +1,7 @@
 """异步任务管理器"""
 import uuid
 import json
+import time
 import threading
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -13,6 +14,7 @@ class TaskProgress:
         self.task_id = task_id
         self.app = app
         self._cancelled = threading.Event()
+        self._paused = threading.Event()
 
     def update(self, progress=None, message=None, status=None, logs=None, result=None):
         """更新任务状态"""
@@ -44,6 +46,27 @@ class TaskProgress:
 
     def cancel(self):
         self._cancelled.set()
+
+    def is_paused(self):
+        return self._paused.is_set()
+
+    def pause(self):
+        self._paused.set()
+
+    def resume(self):
+        self._paused.clear()
+
+    def check_interrupt(self):
+        """循环体内调用：已取消返回 'cancel'；暂停则阻塞直到恢复（期间被取消也返回 'cancel'）；否则返回 None。
+
+        handler 在每个可中断的检查点（如每轮循环开头）调用它，即可实现「暂停/恢复」与「取消」。"""
+        if self._cancelled.is_set():
+            return "cancel"
+        while self._paused.is_set():
+            time.sleep(0.2)
+            if self._cancelled.is_set():
+                return "cancel"
+        return None
 
 
 class TaskManager:
@@ -103,10 +126,19 @@ class TaskManager:
 
                 result = handler(progress=progress, **kwargs)
 
-                progress.update(progress=100, status="success", message="执行完成", result=result or {})
-                progress.update(logs="任务完成")
+                # 关键修复：handler 返回后，必须尊重复制消状态，否则「停止」只会是瞬态、
+                # 最终仍被覆写为 success，导致用户看到「已取消」但任务其实跑完了。
+                if progress.is_cancelled():
+                    progress.update(status="cancelled", message="任务已取消")
+                    progress.update(logs="任务已取消")
+                else:
+                    progress.update(progress=100, status="success", message="执行完成", result=result or {})
+                    progress.update(logs="任务完成")
             except Exception as e:
-                progress.update(status="fail", message=f"执行失败: {str(e)}")
+                if progress.is_cancelled():
+                    progress.update(status="cancelled", message="任务已取消")
+                else:
+                    progress.update(status="fail", message=f"执行失败: {str(e)}")
                 progress.update(logs=f"错误: {str(e)}")
 
     def get_task(self, task_id):
@@ -122,6 +154,24 @@ class TaskManager:
         if progress:
             progress.cancel()
             progress.update(status="cancelled", message="已取消")
+            return True
+        return False
+
+    def pause_task(self, task_id):
+        """暂停任务（handler 需在循环中调用 check_interrupt / is_paused 才生效）"""
+        progress = self._progress.get(task_id)
+        if progress:
+            progress.pause()
+            progress.update(status="paused", message="已暂停")
+            return True
+        return False
+
+    def resume_task(self, task_id):
+        """恢复（继续）任务"""
+        progress = self._progress.get(task_id)
+        if progress:
+            progress.resume()
+            progress.update(status="running", message="已恢复运行")
             return True
         return False
 

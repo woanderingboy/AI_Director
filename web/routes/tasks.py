@@ -26,6 +26,18 @@ def stop_task(task_id):
     return jsonify({"ok": ok})
 
 
+@bp.route("/<task_id>/pause", methods=["POST"])
+def pause_task(task_id):
+    ok = current_app.task_manager.pause_task(task_id)
+    return jsonify({"ok": ok})
+
+
+@bp.route("/<task_id>/resume", methods=["POST"])
+def resume_task(task_id):
+    ok = current_app.task_manager.resume_task(task_id)
+    return jsonify({"ok": ok})
+
+
 @bp.route("/clean", methods=["POST"])
 def clean_tasks():
     """清理已完成的任务"""

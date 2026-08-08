@@ -9,11 +9,15 @@ class ScriptGenerator:
         self.client = LLMClient(provider_key, api_key, model=model)
         self.temperature = temperature
 
-    def generate(self, novel_text, chapter_title="", globals_context="", custom_prompt=""):
+    def generate(self, novel_text, chapter_title="", globals_context="", custom_prompt="", plot_points_context=""):
         from web.services.prompt_templates import DEFAULT_PROMPTS
         system_prompt = DEFAULT_PROMPTS.get("novel2script", "")
         if globals_context:
             system_prompt += f"\n\n项目全局设定（必须遵循）：\n{globals_context}"
+        if plot_points_context:
+            system_prompt += (
+                f"\n\n关键剧情节点（必须严格遵循，剧本需覆盖并呼应这些节点）：\n{plot_points_context}"
+            )
         if custom_prompt:
             system_prompt += custom_prompt
 

@@ -1,7 +1,7 @@
 """小说创作模块 API - 剧情大纲与关键节点"""
 from flask import Blueprint, request, jsonify
 from web.models.database import db
-from web.models.novel_models import PlotOutline, PlotPoint, WorldSetting, NovelCharacter
+from web.models.novel_models import PlotOutline, PlotPoint, WorldSetting, NovelCharacter, bump_novel_version
 
 bp = Blueprint("novel_outline", __name__)
 
@@ -82,6 +82,7 @@ def create_plot_point(project_id):
     )
     db.session.add(point)
     db.session.commit()
+    bump_novel_version(project_id)
     return jsonify(point.to_dict()), 201
 
 
@@ -94,14 +95,17 @@ def update_plot_point(point_id):
         if field in data:
             setattr(point, field, data[field])
     db.session.commit()
+    bump_novel_version(point.project_id)
     return jsonify(point.to_dict())
 
 
 @bp.route("/plot-points/<int:point_id>", methods=["DELETE"])
 def delete_plot_point(point_id):
     point = PlotPoint.query.get_or_404(point_id)
+    pid = point.project_id
     db.session.delete(point)
     db.session.commit()
+    bump_novel_version(pid)
     return jsonify({"ok": True})
 
 

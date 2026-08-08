@@ -1,6 +1,7 @@
 """项目 CRUD API"""
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from web.models.database import db, ProjectModel
+from web.services.pipeline_service import PipelineService
 import os
 
 bp = Blueprint("projects", __name__)
@@ -66,3 +67,45 @@ def delete_project(project_id):
     db.session.delete(project)
     db.session.commit()
     return jsonify({"ok": True})
+
+
+@bp.route("/<int:project_id>/freshness", methods=["GET"])
+def project_freshness(project_id):
+    """下游产物新鲜度：基于项目 novel_version 与各阶段产物目录的 .novel_version 标记判断。
+
+    返回每个阶段是否存在产物、其基于的小说版本、以及是否过期（版本落后于当前小说）。
+    stale=True 表示该阶段产物是基于「旧小说」生成的，上游改动后建议重跑。
+    """
+    project = ProjectModel.query.get_or_404(project_id)
+    cur_version = project.novel_version or 0
+    root = current_app.config["ROOT_PATH"]
+    proj_dir = os.path.join(root, "02_Projects", project.name)
+
+    stage_dirs = {
+        "script": "05_Script",
+        "prompt": "07_Prompt",
+        "image": "08_Image",
+        "video": "09_Video",
+    }
+    stages = {}
+    for key, sub in stage_dirs.items():
+        d = os.path.join(proj_dir, sub)
+        marked = PipelineService._read_novel_version_marker(d)
+        exists = marked is not None and any(
+            fn.endswith((".json", ".png", ".jpg", ".mp4"))
+            for fn in os.listdir(d)
+        ) if os.path.isdir(d) else False
+        stages[key] = {
+            "exists": bool(exists),
+            "version": marked,
+            "stale": bool(exists and marked is not None and marked < cur_version),
+        }
+
+    stale_count = sum(1 for s in stages.values() if s["stale"])
+    return jsonify({
+        "project_id": project_id,
+        "novel_version": cur_version,
+        "stale_count": stale_count,
+        "any_stale": stale_count > 0,
+        "stages": stages,
+    })

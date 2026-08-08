@@ -260,13 +260,48 @@ class PipelineService:
         if progress:
             progress.update(progress=30, message="正在调用 LLM 生成剧本...", logs="调用大模型")
 
-        # 传入全局设定和自定义 prompt
-        script_data = generator.generate(novel_text, chapter_title, globals_ctx, custom_prompt)
+        if progress and progress.check_interrupt() == "cancel":
+            return {"status": "cancelled", "message": "剧本生成已取消"}
+
+        # 汇总关键剧情节点（PlotPoint），让「修改关键节点」能真实影响剧本
+        plot_points_ctx = ""
+        try:
+            from web.models.novel_models import PlotPoint, PlotOutline
+            outline = PlotOutline.query.filter_by(project_id=project_id).first() if project_id else None
+            if outline:
+                pts = PlotPoint.query.filter_by(outline_id=outline.id).order_by(PlotPoint.sequence).all()
+                if pts:
+                    lines = []
+                    for p in pts:
+                        line = f"- [{p.point_type}] {p.title}"
+                        if p.description:
+                            line += f"：{p.description}"
+                        if p.characters_involved:
+                            line += f"（涉及：{p.characters_involved}）"
+                        if p.emotional_beat:
+                            line += f" 情绪：{p.emotional_beat}"
+                        lines.append(line)
+                    plot_points_ctx = "\n".join(lines)
+        except Exception:
+            plot_points_ctx = ""
+
+        # 传入全局设定和自定义 prompt（含关键节点，使修改关键节点能驱动剧本）
+        script_data = generator.generate(
+            novel_text, chapter_title, globals_ctx, custom_prompt,
+            plot_points_context=plot_points_ctx,
+        )
 
         # 防御：大模型可能返回非 JSON / 截断 / 空结构（如小说过长触发 max_tokens 截断）。
         # 此时 chat_json 会回退为 {"raw": ...}，必须显式报错，避免静默写出 0 镜头的空剧本。
         if not isinstance(script_data, dict) or not script_data.get("scenes"):
-            raw_preview = (script_data.get("raw", "") if isinstance(script_data, dict) else str(script_data))[:120]
+            raw = (script_data.get("raw", "") if isinstance(script_data, dict) else str(script_data))
+            raw_preview = raw[:120]
+            # 区分「网络/连接失败」与「内容格式错误」，给出更准确的报错
+            if any(k in raw for k in ("LLM 调用失败", "Max retries", "Connection", "Timeout", "远程", "timed out")):
+                raise RuntimeError(
+                    "大模型调用失败（网络或连接问题，非内容错误）。请检查网络与火山 Ark 服务可用性后重试。"
+                    f"原始片段：{raw_preview}"
+                )
             raise ValueError(
                 "大模型未返回有效的结构化剧本（可能为截断/非 JSON/空结构）。"
                 f"请检查网络与模型配额，或精简本章小说后重试。原始片段：{raw_preview}"
@@ -294,20 +329,39 @@ class PipelineService:
         total_duration = script_data.get("total_duration", 0)
         ch_id = chapter.id if chapter else None
         nov_ch_id = novel_ch.id if novel_ch else None
+        project = ProjectModel.query.get(project_id) if project_id else None
+        cur_version = project.novel_version or 0 if project else 0
+
+        # 重跑清理：删除同一章节的旧剧本行，避免孤儿行累积；旧行不再标 stale，直接替换
+        try:
+            old_rows = ScriptModel.query.filter(
+                (ScriptModel.chapter_id == ch_id) if ch_id else (ScriptModel.novel_chapter_id == nov_ch_id)
+            ).all() if (ch_id or nov_ch_id) else []
+            for r in old_rows:
+                db.session.delete(r)
+        except Exception:
+            pass
+
         script_model = ScriptModel(
             chapter_id=ch_id,
             novel_chapter_id=nov_ch_id,
             filename=filename,
             file_path=filepath,
             shot_count=shot_count,
+            novel_version=cur_version,
+            stale=False,
         )
         db.session.add(script_model)
         db.session.commit()
 
+        # 写小说版本标记：05_Script 目录记录本产物基于的小说版本（供前端过期判断）
+        self._write_novel_version_marker(script_dir, cur_version)
+
         if progress:
             progress.update(progress=100, message=f"剧本完成：{shot_count} 个镜头，总时长 {total_duration}秒", logs="完成")
 
-        return {"filename": filename, "shot_count": shot_count, "path": filepath, "total_duration": total_duration}
+        return {"filename": filename, "shot_count": shot_count, "path": filepath,
+                "total_duration": total_duration, "novel_version": cur_version}
 
     def gen_prompts(self, project_name=None, chapter_id=None, script_id=None, progress=None, **kwargs):
         """阶段二：剧本 → 视觉提示词（注入全局设定）"""
@@ -360,7 +414,39 @@ class PipelineService:
         if progress:
             progress.update(progress=30, message="正在生成视觉提示词...", logs="调用大模型")
 
-        prompt_data = prompt_gen.generate(script_data, globals_context=globals_ctx, custom_prompt=custom_prompt)
+        if progress and progress.check_interrupt() == "cancel":
+            return {"status": "cancelled", "message": "提示词生成已取消"}
+
+        # 1:1 消费剧本已拆好的分镜（优先），不再让 LLM 重新拆分，避免镜头数错位
+        script_shots = script_data.get("shots", [])
+        if script_shots:
+            prompt_data = prompt_gen.generate_from_shots(
+                script_shots, globals_context=globals_ctx, custom_prompt=custom_prompt
+            )
+        else:
+            # 兜底：剧本未预拆分时保持旧行为（整本交给 LLM 拆）
+            prompt_data = prompt_gen.generate(script_data, globals_context=globals_ctx, custom_prompt=custom_prompt)
+
+        # 防御：LLM 未返回有效 shots 时（截断/非 JSON），尝试从全本回退，避免静默空提示词
+        if not isinstance(prompt_data, dict) or not prompt_data.get("shots"):
+            raw = (prompt_data.get("raw", "") if isinstance(prompt_data, dict) else str(prompt_data))
+            raw_preview = raw[:120]
+            if any(k in raw for k in ("LLM 调用失败", "Max retries", "Connection", "Timeout", "远程", "timed out")):
+                raise RuntimeError(
+                    "大模型调用失败（网络或连接问题，非内容错误）。请检查网络与火山 Ark 服务可用性后重试。"
+                    f"原始片段：{raw_preview}"
+                )
+            raise ValueError(
+                "大模型未返回有效的分镜提示词（可能为截断/非 JSON）。"
+                f"请检查网络与模型配额，或精简本章剧本后重试。原始片段：{raw_preview}"
+            )
+
+        # 回填时长：以剧本拆分结果（数值秒）为准，覆盖 LLM 可能返回的字符串如 "10s"，避免视频合成时长异常
+        orig_by_id = {sh.get("shot_id"): sh for sh in script_shots}
+        for shot in prompt_data.get("shots", []):
+            oid = shot.get("shot_id")
+            if oid in orig_by_id:
+                shot["duration"] = orig_by_id[oid].get("duration")
 
         if progress:
             progress.update(progress=70, message="正在保存提示词...", logs="保存 Prompt 文件")
@@ -370,19 +456,27 @@ class PipelineService:
         os.makedirs(prompt_dir, exist_ok=True)
 
         shots = prompt_data.get("shots", [])
-        ch_title = "unknown"
-        if chapter:
-            ch_title = chapter.title
-        elif script_data and isinstance(script_data, dict):
-            ch_title = script_data.get("title", "unknown")
-        elif project_name:
-            ch_title = project_name
+
+        # 稳定命名：以「剧本文件 stem」为基（如「第一章·离站_script」），保证重跑时覆盖而非新增，
+        # 避免出现「LLM 生成的剧本标题每次不同 → 提示词文件名每次不同 → 累积孤儿文件」的问题。
+        script_stem = os.path.splitext(os.path.basename(script.file_path))[0] if (script and script.file_path) else "unknown"
+        base = script_stem
+
+        # 重跑清理：删除本剧本对应的旧提示词文件（同 base），防止孤儿累积
+        try:
+            for old in glob.glob(os.path.join(prompt_dir, f"{base}_prompt_*.json")):
+                os.remove(old)
+        except Exception:
+            pass
 
         saved_files = []
+        cancelled = False
         for i, shot in enumerate(shots):
+            if progress and progress.check_interrupt() == "cancel":
+                cancelled = True
+                break
             shot_id = shot.get("shot_id", i + 1)
-            safe_title = ch_title.replace(" ", "_").replace("/", "-")[:30]
-            filename = f"{safe_title}_prompt_S{shot_id:02d}.json"
+            filename = f"{base}_prompt_S{shot_id:02d}.json"
             filepath = os.path.join(prompt_dir, filename)
 
             # 注入全局设定到每个 prompt
@@ -420,8 +514,14 @@ class PipelineService:
                 json.dump(shot, f, ensure_ascii=False, indent=2)
             saved_files.append(filename)
 
+        if cancelled:
+            return {"status": "cancelled", "message": "提示词生成已取消"}
+
         if progress:
             progress.update(progress=100, message=f"提示词生成完成，共 {len(shots)} 个镜头", logs="完成")
+
+        # 写小说版本标记：07_Prompt 目录记录本产物基于的小说版本
+        self._write_novel_version_marker(prompt_dir, self._current_novel_version(kwargs.get("project_id"), project_name))
 
         return {"shots": len(shots), "files": saved_files}
 
@@ -437,6 +537,42 @@ class PipelineService:
                     return p.name
             except Exception:
                 pass
+        return None
+
+    def _current_novel_version(self, project_id, project_name):
+        """取项目当前 novel_version（不存在时返回 0）"""
+        try:
+            from web.models.database import ProjectModel
+            if not project_id and project_name:
+                p = ProjectModel.query.filter_by(name=project_name).first()
+                project_id = p.id if p else None
+            if project_id:
+                p = ProjectModel.query.get(project_id)
+                return p.novel_version or 0 if p else 0
+        except Exception:
+            pass
+        return 0
+
+    @staticmethod
+    def _write_novel_version_marker(dir_path, version):
+        """在产物目录写 .novel_version 标记（记录该产物基于的小说版本）。"""
+        try:
+            os.makedirs(dir_path, exist_ok=True)
+            with open(os.path.join(dir_path, ".novel_version"), "w", encoding="utf-8") as f:
+                f.write(str(version))
+        except Exception:
+            pass
+
+    @staticmethod
+    def _read_novel_version_marker(dir_path):
+        """读产物目录的 .novel_version 标记；缺失返回 None。"""
+        try:
+            p = os.path.join(dir_path, ".novel_version")
+            if os.path.isfile(p):
+                with open(p, "r", encoding="utf-8") as f:
+                    return int((f.read() or "0").strip() or 0)
+        except Exception:
+            pass
         return None
 
     def _get_image_client(self):
@@ -481,7 +617,17 @@ class PipelineService:
         client, model = self._get_image_client()
         results = []
         total = len(prompt_files)
+        cancelled = False
+
+        # 真实调用遇 429 限速时指数退避重试（轻量生产级容错，避免瞬时限流直接降级占位）
+        import time
+        max_retries = 4
+        backoff = [15, 30, 60, 90]  # 秒
+
         for i, pf in enumerate(prompt_files):
+            if progress and progress.check_interrupt() == "cancel":
+                cancelled = True
+                break
             try:
                 with open(pf, "r", encoding="utf-8") as f:
                     shot = json.load(f)
@@ -497,7 +643,23 @@ class PipelineService:
                                 message=f"生成第 {i+1}/{total} 张图 [{model or '占位'}]",
                                 logs=f"Seedream: {model}")
 
-            gen = client.generate(prompt, neg) if client else None
+            gen = None
+            for attempt in range(max_retries):
+                gen = client.generate(prompt, neg) if client else None
+                # 成功（list 且首项非空）直接跳出
+                if isinstance(gen, list) and gen and gen[0]:
+                    break
+                # 仅对 429 限速做退避重试；其他错误（如鉴权/网络）不重试
+                if isinstance(gen, str) and "429" in gen:
+                    if attempt < max_retries - 1:
+                        if progress:
+                            progress.update(progress=int(15 + 75 * i / total),
+                                            message=f"第 {i+1} 张遇限速，{backoff[attempt]}s 后重试({attempt+1}/{max_retries-1})",
+                                            logs="Seedream 限速重试")
+                        time.sleep(backoff[attempt])
+                        continue
+                break
+
             if isinstance(gen, list) and gen and gen[0] and client.save_b64(gen[0], img_path):
                 results.append(img_path)
             elif isinstance(gen, str) and gen.startswith("[图片生成失败"):
@@ -509,9 +671,13 @@ class PipelineService:
                 self._write_placeholder(img_path, prompt[:120] or "离线占位图")
                 results.append(img_path)
 
+        if cancelled:
+            return {"status": "cancelled", "message": "图片生成已取消"}
         if progress:
             progress.update(progress=100,
                             message=f"图片生成完成：{len(results)} 张（模型 {model or '占位'}）", logs="完成")
+        # 写小说版本标记：08_Image 目录记录本产物基于的小说版本
+        self._write_novel_version_marker(image_dir, self._current_novel_version(kwargs.get("project_id"), project_name))
         return {"status": "ok", "model": model, "count": len(results), "images": results}
 
     def _write_placeholder(self, filepath, text):
@@ -585,7 +751,11 @@ class PipelineService:
             clips = []
             consistency = {}  # shot_stem -> {shot_id, duration, locked_characters, video_prompt}
             total = len(prompt_files)
+            cancelled = False
             for i, pf in enumerate(prompt_files):
+                if progress and progress.check_interrupt() == "cancel":
+                    cancelled = True
+                    break
                 stem = os.path.splitext(os.path.basename(pf))[0]
                 img = images_by_stem.get(stem)
                 if not img:
@@ -596,9 +766,10 @@ class PipelineService:
                 except Exception:
                     shot = {}
 
-                # 时长：优先用分镜 duration，兜底 3 秒
+                # 时长：优先用分镜 duration（数值秒），容错去除可能的 "s" 单位，兜底 3 秒
                 try:
-                    dur = float(shot.get("duration") or 3)
+                    dur_raw = str(shot.get("duration") or 3).strip().rstrip("sS")
+                    dur = float(dur_raw)
                 except Exception:
                     dur = 3.0
                 dur = max(1.0, min(15.0, dur))
@@ -629,6 +800,8 @@ class PipelineService:
                                     logs="moviepy 合成")
                 clips.append(ImageClip(img).with_duration(dur))
 
+            if cancelled:
+                return {"status": "cancelled", "message": "视频合成已取消"}
             if not clips:
                 return {"status": "skipped", "message": "没有可合成的镜头"}
 
@@ -649,6 +822,8 @@ class PipelineService:
             if progress:
                 progress.update(progress=100,
                                 message=f"视频合成完成：{out}（{len(clips)} 镜，{locked_n} 镜带锁）", logs="完成")
+            # 写小说版本标记：09_Video 目录记录本产物基于的小说版本
+            self._write_novel_version_marker(video_dir, self._current_novel_version(kwargs.get("project_id"), project_name))
             return {"status": "ok", "video": out, "count": len(clips),
                     "locked_shot_count": locked_n, "consistency_file": sidecar}
         except Exception as e:
