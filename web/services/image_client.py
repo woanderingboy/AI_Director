@@ -51,3 +51,49 @@ class ImageClient:
             return True
         except Exception:
             return False
+
+    def generate_with_ref(self, ref_paths, prompt, negative_prompt="", size="1024x1024", n=1):
+        """参考图生图（img2img）：以 ref_paths 中的图片为参考保持主体一致性。
+
+        - ref_paths：参考图路径列表（本地文件）或已带 data: 前缀的 data-URI。
+        - 返回 list[str(b64)]；离线/无 Key 返回 None；失败返回错误信息字符串。
+        - 适用于：用角色设定图做参考，生成不同姿态/场景但保脸的分镜帧。
+        """
+        if self.offline or not self.api_key:
+            return None
+
+        images = []
+        for p in ref_paths:
+            if isinstance(p, str) and p.startswith("data:"):
+                images.append(p)
+            else:
+                try:
+                    raw = open(p, "rb").read()
+                    ext = "png" if p.lower().endswith(".png") else "jpeg"
+                    images.append(f"data:image/{ext};base64,{base64.b64encode(raw).decode()}")
+                except Exception as e:
+                    return f"[参考图读取失败: {str(e)}]"
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
+        }
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "image": images,
+            "size": size,
+            "n": n,
+            "response_format": "b64_json",
+            "watermark": False,
+        }
+        if negative_prompt:
+            payload["negative_prompt"] = negative_prompt
+
+        try:
+            resp = requests.post(self.base_url, headers=headers, json=payload, timeout=180)
+            resp.raise_for_status()
+            data = resp.json().get("data", [])
+            return [item.get("b64_json") or item.get("url") for item in data]
+        except Exception as e:
+            return f"[图片生成失败: {str(e)}]"
