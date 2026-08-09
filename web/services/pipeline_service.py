@@ -457,10 +457,20 @@ class PipelineService:
 
         shots = prompt_data.get("shots", [])
 
-        # 构建全局素材图例（角色/场景按分镜出现顺序编号），
+        # 构建全局素材图例（角色/场景按分镜出现顺序统一编号），
         # 供每条提示词注入【素材参考】声明，并与打包重命名共用同一编号。
-        from web.services.storyboard_assets import build_legend_from_shots, refs_for_shot, declaration_for_shot
-        _legend, _legend_idx = build_legend_from_shots(script_shots)
+        # 关键点：必须是「全局」图例——读盘已落盘的前序章节 shots + 本章 shots 拼接后编号，
+        # 否则逐章独立编号会让「提示词里的图N」与打包(build_asset_legend 读盘全局)的 0N.jpg 错位。
+        from web.services.storyboard_assets import (
+            build_legend_from_shots, read_prompt_shots, refs_for_shot, declaration_for_shot,
+        )
+        _prev_shots = read_prompt_shots(proj_path, project_name)
+        _cur_decl = [
+            {"characters": shot_characters.get(shot.get("shot_id"), []),
+             "location": shot_locations.get(shot.get("shot_id")) or ""}
+            for shot in shots
+        ]
+        _legend, _legend_idx = build_legend_from_shots(list(_prev_shots) + _cur_decl)
 
         # 稳定命名：以「剧本文件 stem」为基（如「第一章·离站_script」），保证重跑时覆盖而非新增，
         # 避免出现「LLM 生成的剧本标题每次不同 → 提示词文件名每次不同 → 累积孤儿文件」的问题。

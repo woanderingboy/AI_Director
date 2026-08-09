@@ -109,10 +109,10 @@ def declaration_for_shot(shot, legend_idx):
     return "【素材参考】" + "、".join(parts)
 
 
-def build_asset_legend(root_path, project_name):
-    """从 07_Prompt 目录读盘，复用 build_legend_from_shots。
+def read_prompt_shots(root_path, project_name):
+    """读取 07_Prompt 目录下所有分镜 json（按 S 编号排序），返回 shot dict 列表。
 
-    用于打包时（07_Prompt 已落盘）重建与 gen_prompts 完全相同的图例编号。
+    供 build_asset_legend 与 gen_prompts（构建全局图例）复用。
     """
     prompt_dir = os.path.join(root_path, "02_Projects", project_name, "07_Prompt")
     shots = []
@@ -126,4 +126,12 @@ def build_asset_legend(root_path, project_name):
                 shots.append(d)
             except Exception:
                 continue
-    return build_legend_from_shots(shots)
+    return shots
+
+
+def build_asset_legend(root_path, project_name):
+    """从 07_Prompt 目录读盘，复用 build_legend_from_shots。
+
+    用于打包时（07_Prompt 已落盘）重建与 gen_prompts 完全相同的图例编号。
+    """
+    return build_legend_from_shots(read_prompt_shots(root_path, project_name))
