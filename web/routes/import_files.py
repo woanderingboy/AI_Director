@@ -326,3 +326,195 @@ def import_package(project_id):
             f"跳过已存在 {len(skipped_prompts) + len(skipped_assets)} 个。"
         ),
     })
+
+
+def _register_version(project_id, asset_type, asset_key, content, as_final, notes, content_hash=None):
+    """把一个导入内容登记为 asset_versions 的一个版本（可选最终版）。
+
+    - content_hash 由调用方提供（素材=图片字节哈希，提示词=JSON 文本哈希），用于跨「文件名碰撞改名」的
+      稳定去重：同一份外部文件无论导入几次都命中同一版本，不会因 _1/_2 改名而产生重复最终版。
+    - as_final=True 时：清除同资产其他最终版，再把本版本置为最终版。
+    content 约定为「项目相对路径」（素材）或「提示词 JSON 文本」（分镜提示词）。
+    """
+    from web.models.asset_models import AssetVersion
+    if content_hash is None:
+        content_hash = hashlib.md5((content or "").encode()).hexdigest()[:12]
+    latest = AssetVersion.query.filter_by(
+        project_id=project_id, asset_type=asset_type, asset_key=asset_key
+    ).order_by(AssetVersion.created_time.desc()).first()
+
+    if latest and latest.content_hash == content_hash:
+        if as_final:
+            AssetVersion.query.filter_by(
+                project_id=project_id, asset_type=asset_type, asset_key=asset_key, is_final=True
+            ).update({"is_final": False})
+            latest.is_final = True
+        if notes:
+            latest.notes = notes
+        db.session.commit()
+        return latest
+
+    if latest and latest.version_tag.startswith("v"):
+        try:
+            n = int(latest.version_tag[1:]) + 1
+            tag = f"v{n}"
+        except ValueError:
+            tag = "v1"
+    else:
+        tag = "v1"
+
+    if as_final:
+        AssetVersion.query.filter_by(
+            project_id=project_id, asset_type=asset_type, asset_key=asset_key, is_final=True
+        ).update({"is_final": False})
+
+    v = AssetVersion(
+        project_id=project_id, asset_type=asset_type, asset_key=asset_key,
+        version_tag=tag, content=content, content_hash=content_hash,
+        notes=notes or ("外部导入" + ("·最终版" if as_final else "")),
+        is_final=as_final,
+    )
+    db.session.add(v)
+    db.session.commit()
+    return v
+
+
+@bp.route("/<int:project_id>/import-external", methods=["POST"])
+def import_external(project_id):
+    """一步导入外部文件，并可登记为「最终版」。
+
+    适用两种素材来源：
+      - kind=asset   外部图片 → 存 08_Image，并登记 asset_versions（asset_type 默认 reference）
+      - kind=prompt  外部分镜提示词 JSON → 存 07_Prompt，并登记 asset_versions(asset_type=storyboard_prompt)
+
+    Form 字段：
+      file       必填，外部文件
+      kind       必填，"asset" | "prompt"
+      asset_key  可选，资产/镜头标识（默认取文件名主干）
+      asset_type 可选（仅 asset），默认 "reference"
+      as_final   可选，"true"/"1"/"yes" 表示登记为最终版（自动清除同资产其他最终版）
+      notes      可选，版本备注
+
+    去重：素材按图片字节哈希、提示词按 JSON 文本哈希；同一份外部文件重复导入只复用/刷新既有版本，
+    不生成重复最终版，也不留下改名孤儿文件。返回落盘路径 + 是否最终版。
+    """
+    proj, proj_path = _proj_path(project_id)
+    if not proj:
+        return jsonify({"error": "项目不存在"}), 404
+    file = request.files.get("file")
+    if not file or not file.filename:
+        return jsonify({"error": "缺少文件"}), 400
+    kind = (request.form.get("kind") or "").strip().lower()
+    if kind not in ("asset", "prompt"):
+        return jsonify({"error": "kind 必须是 asset 或 prompt"}), 400
+
+    raw_name = (request.form.get("asset_key") or os.path.splitext(file.filename)[0] or "imported").strip()
+    asset_key = re.sub(r'[\\/:*?"<>|\r\n\t]+', "_", raw_name)[:120]
+    as_final = str(request.form.get("as_final", "")).strip().lower() in ("1", "true", "yes")
+    notes = (request.form.get("notes") or "").strip()
+
+    if kind == "asset":
+        ext = os.path.splitext(file.filename)[1].lower() or ".png"
+        if ext not in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"):
+            ext = ".png"
+        try:
+            fb = file.read()
+        except Exception as e:
+            return jsonify({"error": f"读取文件失败：{e}"}), 400
+        fb_hash = hashlib.md5(fb).hexdigest()[:12]
+
+        from web.models.asset_models import AssetVersion
+        latest = AssetVersion.query.filter_by(
+            project_id=project_id, asset_type="reference", asset_key=asset_key
+        ).order_by(AssetVersion.created_time.desc()).first()
+        if latest and latest.content_hash == fb_hash:
+            # 同内容：就地刷新最终版标记，不重写文件、不新建版本（幂等）
+            if as_final:
+                AssetVersion.query.filter_by(
+                    project_id=project_id, asset_type="reference", asset_key=asset_key, is_final=True
+                ).update({"is_final": False})
+                latest.is_final = True
+            if notes:
+                latest.notes = notes
+            db.session.commit()
+            rel = latest.content
+            dst = os.path.join(proj_path, rel.replace("/", os.sep))
+            return jsonify({
+                "ok": True, "kind": "asset", "filename": os.path.basename(dst),
+                "path": dst, "rel": rel, "is_final": as_final, "reused": True,
+                "message": f"已复用既有素材版本：{os.path.basename(dst)}"
+                           + ("（已刷新为最终版）" if as_final else ""),
+            })
+
+        image_dir = os.path.join(proj_path, "08_Image")
+        os.makedirs(image_dir, exist_ok=True)
+        dst = os.path.join(image_dir, asset_key + ext)
+        if os.path.exists(dst):
+            base, e = os.path.splitext(dst)
+            i = 1
+            while os.path.exists(f"{base}_{i}{e}"):
+                i += 1
+            dst = f"{base}_{i}{e}"
+        with open(dst, "wb") as f:
+            f.write(fb)
+        rel = os.path.relpath(dst, proj_path).replace(os.sep, "/")
+        asset_type = (request.form.get("asset_type") or "reference").strip() or "reference"
+        _register_version(project_id, asset_type, asset_key, rel, as_final, notes, content_hash=fb_hash)
+        return jsonify({
+            "ok": True, "kind": "asset", "filename": os.path.basename(dst),
+            "path": dst, "rel": rel, "is_final": as_final,
+            "message": f"已导入素材：{os.path.basename(dst)}"
+                       + ("（已标记最终版）" if as_final else ""),
+        })
+
+    # kind == "prompt"
+    try:
+        raw = file.read().decode("utf-8", "ignore")
+        data = json.loads(raw)
+    except Exception as e:
+        return jsonify({"error": f"提示词文件不是合法 JSON：{e}"}), 400
+    if not isinstance(data, dict):
+        return jsonify({"error": "分镜提示词 JSON 必须是对象"}), 400
+    text_hash = hashlib.md5(raw.encode("utf-8", "ignore")).hexdigest()[:12]
+
+    from web.models.asset_models import AssetVersion
+    latest = AssetVersion.query.filter_by(
+        project_id=project_id, asset_type="storyboard_prompt", asset_key=asset_key
+    ).order_by(AssetVersion.created_time.desc()).first()
+    if latest and latest.content_hash == text_hash:
+        if as_final:
+            AssetVersion.query.filter_by(
+                project_id=project_id, asset_type="storyboard_prompt", asset_key=asset_key, is_final=True
+            ).update({"is_final": False})
+            latest.is_final = True
+        if notes:
+            latest.notes = notes
+        db.session.commit()
+        rel = latest.content
+        dst = os.path.join(proj_path, rel.replace("/", os.sep))
+        return jsonify({
+            "ok": True, "kind": "prompt", "filename": os.path.basename(dst),
+            "path": dst, "rel": rel, "is_final": as_final, "reused": True,
+            "message": f"已复用既有的分镜提示词版本：{os.path.basename(dst)}"
+                       + ("（已刷新为最终版）" if as_final else ""),
+        })
+
+    prompt_dir = os.path.join(proj_path, "07_Prompt")
+    os.makedirs(prompt_dir, exist_ok=True)
+    dst = os.path.join(prompt_dir, asset_key + ".json")
+    if os.path.exists(dst):
+        base, e = os.path.splitext(dst)
+        i = 1
+        while os.path.exists(f"{base}_{i}{e}"):
+            i += 1
+        dst = f"{base}_{i}{e}"
+    with open(dst, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+    rel = os.path.relpath(dst, proj_path).replace(os.sep, "/")
+    _register_version(project_id, "storyboard_prompt", asset_key, raw, as_final, notes, content_hash=text_hash)
+    return jsonify({
+        "ok": True, "kind": "prompt", "filename": os.path.basename(dst),
+        "path": dst, "rel": rel, "is_final": as_final,
+        "message": f"已导入分镜提示词：{os.path.basename(dst)}"
+                   + ("（已标记最终版）" if as_final else ""),
+    })
