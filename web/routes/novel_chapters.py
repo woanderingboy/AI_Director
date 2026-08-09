@@ -61,6 +61,8 @@ def delete_chapter(ch_id):
     chapter = NovelChapter.query.get_or_404(ch_id)
     db.session.delete(chapter)
     db.session.commit()
+    # 删除章节也属于小说结构改动，应标记下游产物（剧本/提示词/图/视频）过期
+    bump_novel_version(chapter.project_id)
     return jsonify({"ok": True})
 
 
@@ -141,6 +143,8 @@ def delete_scene(scene_id):
     scene = NovelScene.query.get_or_404(scene_id)
     db.session.delete(scene)
     db.session.commit()
+    # 删除场景也属于小说内容改动，标记下游产物过期
+    bump_novel_version(scene.project_id)
     return jsonify({"ok": True})
 
 
