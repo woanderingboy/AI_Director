@@ -63,7 +63,7 @@ with app.app_context():
     check("【" in lp and ("正面" in lp or "front" in lp.lower() or "侧" in lp), "锁定描述由三视图合成（含角度信息）")
 
     # 4) 场景锚接进提示词
-    from web.routes.entities import apply_angles_to_prompts
+    from web.routes.entities import apply_angles_to_prompts, apply_locks_to_prompts
     with app.test_request_context(json={}):
         r4 = apply_angles_to_prompts(PID)
     app_cnt = r4.get_json().get("applied", 0)
@@ -78,6 +78,20 @@ with app.app_context():
                 hit += 1
     print(f"    07_Prompt 中含【场景设定】的镜头数: {hit}")
     check(hit > 0, "07_Prompt 已注入【场景设定】场景锚")
+
+    # 4b) 一致性锁接进提示词（零成本写回，与 apply-angles 对称）
+    with app.test_request_context(json={}):
+        r4b = apply_locks_to_prompts(PID)
+    lock_cnt = r4b.get_json().get("applied", 0)
+    print(f"[4b] 应用一致性锁到 {lock_cnt} 个分镜提示词（已锁：{r4b.get_json().get('locked')}）")
+    lhit = 0
+    for f in os.listdir(pd):
+        if f.endswith(".json"):
+            d = json.load(open(os.path.join(pd, f), encoding="utf-8"))
+            if "【角色一致性锁定" in (d.get("video_prompt") or ""):
+                lhit += 1
+    print(f"    07_Prompt 中含【角色一致性锁定】的镜头数: {lhit}")
+    check(lhit > 0, "07_Prompt 已注入【角色一致性锁定】标签")
 
     # 5) Script Doctor 自动体检写库
     svc = PipelineService(ROOT)

@@ -370,3 +370,62 @@ def _strip_angle_tag(vp, loc):
     """移除 video_prompt 中已有的【场景设定·loc】整段（含其后空行）。"""
     import re
     return re.sub(rf"\n*【场景设定·{re.escape(loc)}】.*?(\n\n|$)", "", vp, flags=re.S).strip()
+
+
+@bp.route("/<int:project_id>/apply-locks", methods=["POST"])
+def apply_locks_to_prompts(project_id):
+    """把已开启一致性锁的角色外观（locked_prompt，含三视图合成）幂等注入 07_Prompt（【角色一致性锁定·名】标签）。
+
+    与 apply-angles 对称：不重跑 LLM，仅把当前锁状态写回分镜提示词，让「防变脸」真正落到每一帧。
+    """
+    from web.models.novel_models import NovelCharacter
+    proj = ProjectModel.query.get_or_404(project_id)
+    proj_dir = os.path.join(current_app.config["ROOT_PATH"], "02_Projects", proj.name)
+    prompt_dir = os.path.join(proj_dir, "07_Prompt")
+    locked_map = {}
+    for c in NovelCharacter.query.filter_by(project_id=project_id).all():
+        if getattr(c, "consistency_lock", False):
+            lp = (c.locked_prompt or "").strip()
+            if not lp:
+                lp = "；".join([x for x in [c.appearance, c.visual_prompt] if x and x.strip()])
+            if lp:
+                locked_map[c.name] = lp
+    if not locked_map:
+        return jsonify({"ok": True, "applied": 0, "note": "当前没有已开启一致性锁的角色"})
+    if not os.path.isdir(prompt_dir):
+        return jsonify({"ok": False, "error": "未找到 07_Prompt 目录"})
+
+    applied = 0
+    for f in sorted(os.listdir(prompt_dir)):
+        if not f.endswith(".json"):
+            continue
+        path = os.path.join(prompt_dir, f)
+        try:
+            d = json.load(open(path, encoding="utf-8"))
+        except Exception:
+            continue
+        chars = d.get("characters") or []
+        names = [c if isinstance(c, str) else c.get("name") for c in chars if c]
+        vp = d.get("video_prompt", "")
+        changed = False
+        for name in names:
+            lp = locked_map.get(name)
+            if not lp:
+                continue
+            tag = f"【角色一致性锁定·{name}】{lp}"
+            # 幂等：先移除该角色旧锁标签，再追加
+            vp = _strip_lock_tag(vp, name)
+            vp = (vp + "，" + tag) if vp.strip() else tag
+            changed = True
+        if changed:
+            d["video_prompt"] = vp
+            d["locked_characters"] = [n for n in names if n in locked_map]
+            json.dump(d, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+            applied += 1
+    return jsonify({"ok": True, "applied": applied, "locked": list(locked_map.keys())})
+
+
+def _strip_lock_tag(vp, name):
+    """移除 video_prompt 中已有的【角色一致性锁定·name】整段。"""
+    import re
+    return re.sub(rf"【角色一致性锁定·{re.escape(name)}】.*?(?=，【角色一致性锁定|$|\n)", "", vp, flags=re.S).strip()

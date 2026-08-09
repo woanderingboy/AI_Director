@@ -2529,6 +2529,7 @@ async function renderEntityGraph(c) {
       <button class="btn btn--sm btn--purple" id="btnGenThreeView">🎨 生成三视图</button>
       <button class="btn btn--sm btn--purple" id="btnGenFourAngle">🎨 生成四角度</button>
       <button class="btn btn--sm btn--amber" id="btnApplyAngles">🔗 应用角度到提示词</button>
+      <button class="btn btn--sm btn--amber" id="btnApplyLocks">🔒 应用锁到提示词</button>
     </div>
     <div class="section-header"><div class="section-title">👥 角色（${data.characters.length}）· 已锁 ${data.locked_count}</div></div>
     <div class="card-grid mb-4" id="charGrid2">${charCards || '<div class="text-sm text-muted">剧本中暂未识别到角色</div>'}</div>
@@ -2558,6 +2559,10 @@ async function renderEntityGraph(c) {
   document.getElementById('btnApplyAngles').onclick = async () => {
     try { const r = await api(`/entities/${pid}/apply-angles`, { method: 'POST', body: {} }); toast(`已把场景锚写入 ${r.applied} 个分镜提示词`); }
     catch (e) { toast('应用角度失败：' + e.message); }
+  };
+  document.getElementById('btnApplyLocks').onclick = async () => {
+    try { const r = await api(`/entities/${pid}/apply-locks`, { method: 'POST', body: {} }); toast(r.note ? r.note : `已把一致性锁写入 ${r.applied} 个分镜提示词（${r.locked ? r.locked.join('、') : ''}）`); }
+    catch (e) { toast('应用锁失败：' + e.message); }
   };
 
   body.querySelectorAll('[data-viewshots]').forEach(btn => {
