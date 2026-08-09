@@ -19,7 +19,7 @@ import textwrap
 # 强制在线（必须在 import web 之前设置，dotenv 不会覆盖已存在的环境变量）
 os.environ["AI_DIRECTOR_OFFLINE"] = "0"
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, ROOT)
 
 from web.services.storyboard_assets import (

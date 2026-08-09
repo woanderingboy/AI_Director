@@ -6,7 +6,10 @@ import base64
 from .script_generator import ScriptGenerator
 from .prompt_generator import PromptGenerator
 from .llm_client import LLMClient
-from web.services.prompt_assembly import inject_globals, get_project_globals
+from web.services.prompt_assembly import (
+    inject_globals, get_project_globals, inject_personal_habits,
+)
+from web.services.asset_habit_sync import load_personal_habits
 from web.models.database import db
 
 
@@ -524,6 +527,8 @@ class PipelineService:
 
         saved_files = []
         cancelled = False
+        # 个人习惯画像（全局），gen_prompts 将其作为软偏好注入每镜
+        _personal_habits = load_personal_habits()
         for i, shot in enumerate(shots):
             if progress and progress.check_interrupt() == "cancel":
                 cancelled = True
@@ -535,6 +540,9 @@ class PipelineService:
             # 注入全局设定到每个 prompt（幂等、去重，单一入口）
             gs = self._get_global_settings(proj_id)
             inject_globals(shot, gs)
+
+            # 注入个人习惯软偏好（全局画像，来自 Personal_Habits.yaml；软性加权，不覆盖镜头描述）
+            inject_personal_habits(shot, _personal_habits)
 
             # 注入「角色一致性锁」：把锁定角色的外观描述强制写入该分镜视频提示词，防变脸
             shot_chars = shot_characters.get(shot_id, [])

@@ -277,6 +277,24 @@ def write_personal_habits(signals, loader, recognized, dry_run=False):
     return data
 
 
+def load_personal_habits(root_path=None):
+    """读取 01_Global_Assets/Personal_Habits.yaml（个人习惯画像），返回 dict（无则 {}）。
+
+    供生成管线在 gen_prompts 阶段软性注入个人偏好使用。
+    """
+    import yaml
+    if root_path is None:
+        from web.config import root_path as _rp
+        root_path = _rp()
+    fp = os.path.join(root_path, "01_Global_Assets", "Personal_Habits.yaml")
+    if not os.path.exists(fp):
+        return {}
+    try:
+        return yaml.safe_load(open(fp, encoding="utf-8")) or {}
+    except Exception:
+        return {}
+
+
 def sync_final_assets_to_globals(project_id=None, use_llm=False, dry_run=False):
     """主入口：扫描最终资产 → 提取习惯 → 增量合并进全局资产库。
 

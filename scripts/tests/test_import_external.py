@@ -9,7 +9,7 @@ import json
 import shutil
 import tempfile
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 os.environ["AI_DIRECTOR_OFFLINE"] = "1"
 

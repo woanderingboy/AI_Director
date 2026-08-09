@@ -804,6 +804,11 @@ function renderGlobalAssets(c) {
   c.innerHTML = `
     <div class="section-title mb-2">🗂 全局资产库</div>
     <div class="text-sm text-muted mb-4">预置的运镜/转场/情绪/灯光/风格/动作/模板资产，生成提示词时自动参考。可在目录中添加 YAML 文件扩展。</div>
+    <div class="flex gap-2 mb-3">
+      <button class="btn btn--primary btn--sm" id="btnSyncHabits">🔄 从最终资产同步习惯</button>
+      <button class="btn btn--sm" id="btnSyncHabitsDry">👁 预览新增</button>
+      <span class="text-xs text-muted self-center">把各项目最终分镜里的高频机位/光线/情绪整理进个人习惯库，并在生成时软性参考</span>
+    </div>
     <div class="filters">${cats.map(cat => `<div class="filter ${cat==='Camera'?'active':''}" data-cat="${cat}">${catLabels[cat] || cat}</div>`).join('')}</div>
     <div id="assetContent"></div>
   `;
@@ -814,6 +819,10 @@ function renderGlobalAssets(c) {
       renderGlobalAssetList(el.dataset.cat);
     };
   });
+  const btnSync = c.querySelector('#btnSyncHabits');
+  if (btnSync) btnSync.onclick = () => syncHabits(false);
+  const btnDry = c.querySelector('#btnSyncHabitsDry');
+  if (btnDry) btnDry.onclick = () => syncHabits(true);
   renderGlobalAssetList('Camera');
 }
 
@@ -845,6 +854,32 @@ function catColor(cat) {
 function getCategoryIcon(cat) {
   const icons = { Camera: '📹', Transition: '🔀', Emotion: '🎭', Lighting: '💡', Style: '🎨', Action: '🏃', Template: '📋' };
   return icons[cat] || '📄';
+}
+
+async function syncHabits(dryRun) {
+  const btn = document.getElementById(dryRun ? 'btnSyncHabitsDry' : 'btnSyncHabits');
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = dryRun ? '👁 预览中…' : '⏳ 同步中…'; }
+  try {
+    const r = await api('/api/global-assets/sync-from-finals', {
+      method: 'POST',
+      body: { dry_run: dryRun, use_llm: false },
+    });
+    const added = (r.added || []).length;
+    const skipped = (r.skipped || []).length;
+    const recognized = (r.recognized || []).length;
+    if (dryRun) {
+      toast(`预览：将新增 ${added} 项${added ? ' — ' + r.added.join('、') : ''}`);
+    } else {
+      toast(`同步完成：新增 ${added} 项，跳过 ${skipped} 项，识别习惯 ${recognized} 项`);
+      await loadGlobalAssets();
+      renderGlobalAssetList('Camera');
+    }
+  } catch (e) {
+    toast('同步失败：' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
 }
 
 /* ═══════════ PROVIDERS ═══════════ */

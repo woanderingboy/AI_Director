@@ -44,6 +44,8 @@ def _clean_scene(scene, gparts):
         s = ln.strip()
         if s.startswith("【项目设定】"):
             continue
+        if s.startswith("【个人习惯】"):
+            continue
         if s in gpart_set:
             continue
         out.append(ln)
@@ -98,7 +100,10 @@ def build_full_prompt(shot, g, characters=None):
         allneg = shot_neg or g_neg
     negsec = "【负面】" + allneg if allneg else ""
 
-    parts = [p for p in [legend, gsec, scene, negsec] if p]
+    # 个人习惯软偏好（幂等：_clean_scene 已剥离旧的【个人习惯】行）
+    habit_hint = build_habit_hint(_load_habits_cached())
+
+    parts = [p for p in [legend, gsec, scene, negsec, habit_hint] if p]
     return "\n\n".join(parts)
 
 
@@ -147,4 +152,65 @@ def inject_globals(shot, g):
         np_ = (shot.get("negative_prompt") or "").strip()
         if neg not in np_:
             shot["negative_prompt"] = (np_ + "；" + neg) if np_ else neg
+    return shot
+
+
+# ── 个人习惯软偏好（来自 01_Global_Assets/Personal_Habits.yaml） ──
+_HABIT_CACHE = None
+
+
+def _load_habits_cached():
+    """读取并缓存个人习惯画像（进程内单次 IO）。"""
+    global _HABIT_CACHE
+    if _HABIT_CACHE is None:
+        from web.services.asset_habit_sync import load_personal_habits
+        _HABIT_CACHE = load_personal_habits()
+    return _HABIT_CACHE
+
+
+def _top_habits(habits, key, n=3):
+    d = habits.get(key) or {}
+    if not isinstance(d, dict):
+        return []
+    try:
+        ranked = sorted(d.items(), key=lambda kv: kv[1], reverse=True)[:n]
+    except Exception:
+        return []
+    return [k for k, _ in ranked]
+
+
+def build_habit_hint(habits):
+    """把个人习惯画像编译成一行软性偏好提示（无画像则返回空串）。
+
+    形如：【个人习惯】默认倾向：运镜-中景/俯拍；光线-自然光/侧光；情绪-紧张/压抑。可据镜头需要偏离。
+    """
+    if not habits:
+        return ""
+    cam = _top_habits(habits, "运镜习惯")
+    lig = _top_habits(habits, "光线习惯")
+    emo = _top_habits(habits, "情绪习惯")
+    if not (cam or lig or emo):
+        return ""
+    parts = []
+    if cam:
+        parts.append("运镜-" + "/".join(cam))
+    if lig:
+        parts.append("光线-" + "/".join(lig))
+    if emo:
+        parts.append("情绪-" + "/".join(emo))
+    return "【个人习惯】默认倾向：" + "；".join(parts) + "。可据镜头需要偏离。"
+
+
+def inject_personal_habits(shot, habits):
+    """幂等：把个人习惯软偏好追加进存储 video_prompt（供 draw_images 出图读取）。
+
+    与 inject_globals 同机制：substring 去重，重跑 gen_prompts 不会累积。
+    返回原地修改后的 shot。
+    """
+    hint = build_habit_hint(habits)
+    if not hint:
+        return shot
+    vp = (shot.get("video_prompt") or "").strip()
+    if hint not in vp:
+        shot["video_prompt"] = (vp + "，" + hint) if vp else hint
     return shot
