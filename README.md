@@ -82,6 +82,7 @@ AI_Director/
     │   ├── prompt_generator.py     # 剧本→提示词
     │   ├── task_manager.py         # 异步任务管理
     │   ├── project_service.py      # 项目路径管理
+    │   ├── storyboard_assets.py   # 素材图例（图N↔0N.jpg）
     │   └── novel_ai_service.py     # 小说创作 AI 服务
     ├── routes/                     # API 蓝图（全部前缀 /api）
     │   ├── projects.py             # 项目 CRUD
@@ -97,6 +98,8 @@ AI_Director/
     │   ├── novel_characters.py     # 角色管理
     │   ├── novel_outline.py        # 大纲+关键节点
     │   ├── novel_chapters.py       # 小说章节+场景
+    │   ├── import_files.py         # 小说/图片导入 + 打包文件夹导入
+    │   ├── inkos_import.py         # inkos 书籍回写导入
     │   └── novel_chat.py           # AI 自由对话
     ├── models/
     │   ├── database.py             # 核心数据表
@@ -198,6 +201,26 @@ VOLC_DEFAULT=1                              # 1=将火山引擎设为默认服�
 - 资产图：直接放入 `02_Projects/{项目名}/08_Image/` 目录
 - 小说原文：放入 `02_Projects/{项目名}/04_Story/` 目录
 - 全局资产：放入 `01_Global_Assets/{分类}/` 目录
+- 打包文件夹：`POST /api/import/:id/import-package`，传入已导出的打包文件夹路径，自动把 `prompts/` 落到目标项目 `07_Prompt/`、图片/视频落到 `08_Image/` 或 `09_Video/`，同名幂等跳过（详见下方「打包文件夹重新导入」）
+
+### 素材参考图例（图N ↔ 0N.jpg）
+
+为了让打包产物能直接丢进豆包等外部生图工具，系统使用统一的「素材图例」：
+
+- **提示词首段声明**：`gen_prompts` 生成分镜提示词时，会自动在每条 `video_prompt` 开头注入素材参考声明，仅标注该镜用到的素材：
+  ```
+  【素材参考】图1=林深(角色图)、图2=地铁站台(场景图)…
+  ```
+- **打包按图例顺序重命名**：`export_package` 按分镜出现顺序（角色优先，其次场景，逐镜推进）生成全局图例，把导出素材文件重命名为 `01.jpg / 02.jpg …`。
+- **严格一一对应**：提示词里的「图1」就是打包文件夹里的「01.jpg」，两者共用同一图例函数，方便你直接按图号把对应素材和提示词喂给豆包。
+
+> 打包产物**不做自动关联**（分镜画布不按文件名绑定静帧预览），纯按图例顺序命名，便于在 AI Director 之外直接使用。
+
+### 打包文件夹重新导入（import-package）
+
+导出后的打包文件夹可作为自包含单元二次复用或换机迁移：
+
+- `POST /api/import/:id/import-package` — 传入已导出的打包文件夹路径，自动把 `prompts/` 落到目标项目 `07_Prompt/`、图片/视频落到 `08_Image/` 或 `09_Video/`，同名幂等跳过。导入后提示词首段的【素材参考】声明保留，可再次打包导出。
 
 ## API 端点一览
 
@@ -253,6 +276,40 @@ SQLite 文件：`04_Output/ai_video_data.db`（自动创建）
 | novel_scenes | 场景 |
 | asset_versions | 资产版本 |
 | asset_packages | 素材打包 |
+
+## 换机迁移 / 新机器安装
+
+### 关键：GitHub 上有什么、没有什么
+- **GitHub 上（已被 git 跟踪）**：全部代码、`01_Global_Assets/`（YAML 资产库）、部分 demo 子集（`02_Projects/末日女子生存指南` 的 script/prompt）、`requirements.txt`、`.env.example`、`README.md`。
+- **GitHub 上没有（被 `.gitignore` 屏蔽，必须手动拷）**：
+  - `.env` — 真实 API Key
+  - `04_Output/ai_video_data.db` — 主数据库，所有项目 / 角色 / 剧本 / 提示词元数据都在这里
+  - 你自己的 `02_Projects/*`（除 demo 子集）、`04_Output/package_*`
+
+> 所以「另一台同步过 GitHub」只代表代码在云端，**数据不在云端**——换机迁移务必单独处理 `.env` 和数据库。
+
+### 方式一：只要代码（全新开始）
+```bash
+git clone https://github.com/woanderingboy/AI_Director.git
+cd AI_Director
+cp .env.example .env      # 或拷旧机的 .env（含真实 Key）
+pip install -r requirements.txt
+python app.py             # 首次启动自动建空数据库
+```
+离线可用（不填 Key）：`AI_DIRECTOR_OFFLINE=1 python app.py`。
+
+### 方式二：连带现有项目数据一起搬（推荐）
+直接拷贝整个项目文件夹（**除 `.git` 和 venv**）到新机，再补两样 gitignore 的关键物：
+- `.env` — 真实 Key，必拷
+- `04_Output/ai_video_data.db` — 主数据库，不拷就看不到旧项目
+- 如需保留已生成图 / 视频，连 `02_Projects/`、`04_Output/` 一起拷
+
+### 另一台已是 clone 的：直接 git pull
+```bash
+cd AI_Director
+git pull origin master     # 自动拿到最新代码，不动那台的 .env 和 db
+```
+前提：那台没有未提交的本地改动（有则先 `git stash` 或提交）。
 
 ## 开发规范
 
