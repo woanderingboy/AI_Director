@@ -1,0 +1,22 @@
+{
+  "project": "打包测试演示_A",
+  "export_time": "2026-08-07 22:34:49",
+  "shots": [
+    {
+      "file": "demo_prompt_S01.json",
+      "video_prompt": "测试",
+      "camera": "",
+      "duration": ""
+    }
+  ],
+  "assets": [
+    {
+      "asset_key": "filegroup:场景A",
+      "file": "filegroup场景a.png"
+    },
+    {
+      "asset_key": "filegroup:苏晚",
+      "file": "filegroup苏晚.png"
+    }
+  ]
+}

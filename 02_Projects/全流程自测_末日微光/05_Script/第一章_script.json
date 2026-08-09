@@ -1,0 +1,123 @@
+{
+  "title": "废墟微光",
+  "total_duration": 30,
+  "characters": [
+    {
+      "name": "苏晚",
+      "description": "年轻女性，黑色短发微乱，琥珀色瞳孔，身形消瘦但有力，左脸有一道浅疤，穿着旧迷彩夹克"
+    }
+  ],
+  "scenes": [
+    {
+      "scene_id": 1,
+      "location": "坍塌的避难所入口",
+      "time": "清晨",
+      "weather": "灰霾",
+      "characters": [
+        {
+          "name": "苏晚",
+          "action": "背起背包，决然转身离去",
+          "emotion": "决绝"
+        }
+      ],
+      "dialogue": [],
+      "camera": "全景转中景背影",
+      "mood": "荒凉、决绝",
+      "description": "灰霾的天空下，半坍塌的混凝土避难所入口处，苏晚背着一个沉重的旧登山包，最后回头看了一眼废墟，随后转身迈入荒凉的街道，背影显得孤独而坚定。",
+      "estimated_seconds": 15
+    },
+    {
+      "scene_id": 2,
+      "location": "废弃便利店",
+      "time": "白天",
+      "weather": "阴沉",
+      "characters": [
+        {
+          "name": "苏晚",
+          "action": "在柜台发现地图，眼神发亮",
+          "emotion": "希望"
+        }
+      ],
+      "dialogue": [],
+      "camera": "近景手部动作转特写地图",
+      "mood": "惊喜、希望",
+      "description": "昏暗的便利店里，苏晚在满是灰尘的收银台上展开一张皱巴巴的纸。纸上手绘着路线，终点标注着“城北广播站”。她手指点在终点上，抬起头，眼中映出微光。",
+      "estimated_seconds": 15
+    },
+    {
+      "scene_id": 3,
+      "location": "桥洞下",
+      "time": "夜晚",
+      "weather": "微雨",
+      "characters": [
+        {
+          "name": "苏晚",
+          "action": "生火，紧握徽章立誓",
+          "emotion": "坚定"
+        }
+      ],
+      "dialogue": [],
+      "camera": "中景火光映脸转特写徽章",
+      "mood": "坚定、孤寂",
+      "description": "桥洞下，苏晚面前燃着一堆小火。火光映亮了她沾染灰尘的脸庞。她双手紧握着一枚旧徽章置于胸前，目光穿透跳动的火焰，凝视着黑暗的远方，眼神坚毅。",
+      "estimated_seconds": 15
+    }
+  ],
+  "shots": [
+    {
+      "shot_id": 1,
+      "scene_id": 1,
+      "duration": 10,
+      "location": "坍塌的避难所入口",
+      "time": "清晨",
+      "characters": [
+        {
+          "name": "苏晚",
+          "action": "背起背包，决然转身离去",
+          "emotion": "决绝"
+        }
+      ],
+      "camera": "全景转中景背影",
+      "mood": "荒凉、决绝",
+      "description": "灰霾的天空下，半坍塌的混凝土避难所入口处，苏晚背着一个沉重的旧登山包，最后回头看了一眼废墟，随后转身迈入荒凉的街道，背影显得孤独而坚定。",
+      "dialogue": []
+    },
+    {
+      "shot_id": 2,
+      "scene_id": 2,
+      "duration": 10,
+      "location": "废弃便利店",
+      "time": "白天",
+      "characters": [
+        {
+          "name": "苏晚",
+          "action": "在柜台发现地图，眼神发亮",
+          "emotion": "希望"
+        }
+      ],
+      "camera": "近景手部动作转特写地图",
+      "mood": "惊喜、希望",
+      "description": "昏暗的便利店里，苏晚在满是灰尘的收银台上展开一张皱巴巴的纸。纸上手绘着路线，终点标注着“城北广播站”。她手指点在终点上，抬起头，眼中映出微光。",
+      "dialogue": []
+    },
+    {
+      "shot_id": 3,
+      "scene_id": 3,
+      "duration": 10,
+      "location": "桥洞下",
+      "time": "夜晚",
+      "characters": [
+        {
+          "name": "苏晚",
+          "action": "生火，紧握徽章立誓",
+          "emotion": "坚定"
+        }
+      ],
+      "camera": "中景火光映脸转特写徽章",
+      "mood": "坚定、孤寂",
+      "description": "桥洞下，苏晚面前燃着一堆小火。火光映亮了她沾染灰尘的脸庞。她双手紧握着一枚旧徽章置于胸前，目光穿透跳动的火焰，凝视着黑暗的远方，眼神坚毅。",
+      "dialogue": []
+    }
+  ],
+  "shot_count": 3
+}
