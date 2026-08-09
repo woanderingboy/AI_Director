@@ -72,7 +72,9 @@ class NovelCharacter(db.Model):
     key_quotes = db.Column(db.Text, default="")  # 经典台词
     visual_prompt = db.Column(db.Text, default="")  # 视觉化提示词
     consistency_lock = db.Column(db.Boolean, default=False)  # 角色一致性锁：开启后其锁定外观将注入每一帧提示词，防变脸
-    locked_prompt = db.Column(db.Text, default="")  # 锁定时注入的视觉描述（默认由外貌+视觉提示词合成）
+    locked_prompt = db.Column(db.Text, default="")  # 锁定时注入的视觉描述（默认由外貌+视觉提示词合成；有三视图时优先用三视图）
+    three_view_prompt = db.Column(db.Text, default="")  # 三视图提示词（JSON：{"front":..,"side":..,"back":..}）
+    three_view_status = db.Column(db.String(20), default="")  # pending/generating/done/error
     notes = db.Column(db.Text, default="")
     created_time = db.Column(db.DateTime, default=datetime.now)
     updated_time = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
@@ -88,6 +90,8 @@ class NovelCharacter(db.Model):
             "visual_prompt": self.visual_prompt,
             "consistency_lock": self.consistency_lock,
             "locked_prompt": self.locked_prompt,
+            "three_view_prompt": self.three_view_prompt,
+            "three_view_status": self.three_view_status,
             "notes": self.notes,
             "created_time": str(self.created_time) if self.created_time else None,
             "updated_time": str(self.updated_time) if self.updated_time else None,
@@ -209,4 +213,55 @@ class NovelScene(db.Model):
             "content": self.content, "mood": self.mood, "notes": self.notes,
             "created_time": str(self.created_time) if self.created_time else None,
             "updated_time": str(self.updated_time) if self.updated_time else None,
+        }
+
+
+class SceneLibrary(db.Model):
+    """场景资产库（流水线派生）：从剧本地点自动建档，承载四角度设定与场景一致性 anchor。
+
+    与创作模块的 novel_scenes（绑定 novel_chapters 正文）解耦，专门服务于流水线出图一致性。
+    """
+    __tablename__ = "scene_library"
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False)
+    name = db.Column(db.String(200), nullable=False)        # 原始地点名（如「长安街巷口」）
+    description = db.Column(db.Text, default="")             # 场景描述 / 氛围
+    visual_prompt = db.Column(db.Text, default="")          # 主视觉锚（四角度生成后合成的锁定场景观感）
+    angle_front = db.Column(db.Text, default="")            # 正打
+    angle_back = db.Column(db.Text, default="")             # 反打
+    angle_side = db.Column(db.Text, default="")             # 侧打
+    angle_over = db.Column(db.Text, default="")             # 俯拍
+    four_angle_status = db.Column(db.String(20), default="")  # pending/generating/done/error
+    notes = db.Column(db.Text, default="")
+    created_time = db.Column(db.DateTime, default=datetime.now)
+    updated_time = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "project_id": self.project_id,
+            "name": self.name, "description": self.description,
+            "visual_prompt": self.visual_prompt,
+            "angle_front": self.angle_front, "angle_back": self.angle_back,
+            "angle_side": self.angle_side, "angle_over": self.angle_over,
+            "four_angle_status": self.four_angle_status, "notes": self.notes,
+            "created_time": str(self.created_time) if self.created_time else None,
+            "updated_time": str(self.updated_time) if self.updated_time else None,
+        }
+
+
+class ScriptDoctorReport(db.Model):
+    """剧本体检报告存档：gen_prompts 每章生成后自动写入，前端 Script Doctor 面板读取展示。"""
+    __tablename__ = "script_doctor_reports"
+    id = db.Column(db.Integer, primary_key=True)
+    project_id = db.Column(db.Integer, db.ForeignKey("projects.id"), nullable=False)
+    chapter_key = db.Column(db.String(200), default="")     # 章节标题（如「第1章 最后一单」）
+    report_json = db.Column(db.Text, default="")
+    runtime_seconds = db.Column(db.Float, default=0)
+    created_time = db.Column(db.DateTime, default=datetime.now)
+
+    def to_dict(self):
+        return {
+            "id": self.id, "project_id": self.project_id, "chapter_key": self.chapter_key,
+            "report_json": self.report_json, "runtime_seconds": self.runtime_seconds,
+            "created_time": str(self.created_time) if self.created_time else None,
         }

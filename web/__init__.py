@@ -55,6 +55,25 @@ def _migrate_consistency_lock(db):
         pass
 
 
+def _migrate_three_view(db):
+    """为 novel_characters 表补齐 three_view_prompt / three_view_status 列（仅新增，不删数据）"""
+    try:
+        from sqlalchemy import text, inspect
+        inspector = inspect(db.engine)
+        existing = {c["name"] for c in inspector.get_columns("novel_characters")}
+        needed = {
+            "three_view_prompt": "TEXT DEFAULT ''",
+            "three_view_status": "VARCHAR(20) DEFAULT ''",
+        }
+        for col, ddl in needed.items():
+            if col not in existing:
+                with db.engine.connect() as conn:
+                    conn.execute(text(f"ALTER TABLE novel_characters ADD COLUMN {col} {ddl}"))
+                    conn.commit()
+    except Exception:
+        pass
+
+
 def _migrate_novel_version(db):
     """为 projects / scripts 表补齐 novel_version / stale 列（仅新增，不删数据）"""
     try:
@@ -162,6 +181,8 @@ def create_app(config_overrides=None):
         db.create_all()
         # 列迁移：为已存在的 novel_characters 表补齐一致性锁字段（不破坏已有数据）
         _migrate_consistency_lock(db)
+        # 列迁移：为 novel_characters 补齐三视图字段
+        _migrate_three_view(db)
         # 列迁移：为 projects / scripts 表补齐 novel_version / stale（下游过期追踪）
         _migrate_novel_version(db)
         from .models.database import Provider

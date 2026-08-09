@@ -92,3 +92,29 @@ def doctor_ai_review(project_id):
     except Exception as e:
         return jsonify({"error": f"AI 诊断失败：{e}"}), 502
     return jsonify({"review": review})
+
+
+@bp.route("/script-doctor/<int:project_id>/reports", methods=["GET"])
+def doctor_reports(project_id):
+    """返回 gen_prompts 自动写入的每章体检报告（前端 Script Doctor 面板展示）。"""
+    from web.models.novel_models import ScriptDoctorReport
+    rows = ScriptDoctorReport.query.filter_by(project_id=project_id).order_by(
+        ScriptDoctorReport.created_time.desc()
+    ).all()
+    out = []
+    for r in rows:
+        try:
+            rep = json.loads(r.report_json) if r.report_json else {}
+        except Exception:
+            rep = {}
+        out.append({
+            "id": r.id,
+            "chapter_key": r.chapter_key,
+            "runtime_seconds": r.runtime_seconds,
+            "created_time": str(r.created_time) if r.created_time else None,
+            "overall_score": rep.get("overall_score"),
+            "overall_grade": rep.get("overall_grade"),
+            "issues": rep.get("issues", []),
+            "categories": rep.get("categories", {}),
+        })
+    return jsonify({"project_id": project_id, "reports": out, "auto_run": True})

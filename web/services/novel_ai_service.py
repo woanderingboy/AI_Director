@@ -163,3 +163,89 @@ def ai_chat_novel(prompt_text, context="", project_id=None):
 {ctx}
 回答要专业、具体、有建设性。用中文回复。"""
     return _chat("chat", prompt, prompt_text, project_id)
+
+
+def _parse_view_json(raw, keys):
+    """把 LLM 返回解析为 {key: str} 字典；容错：非 JSON 时按行拆分或整体回填。"""
+    if isinstance(raw, dict):
+        return {k: str(raw.get(k, "")).strip() for k in keys}
+    text = raw if isinstance(raw, str) else str(raw)
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            return {k: str(obj.get(k, "")).strip() for k in keys}
+    except Exception:
+        pass
+    # 退化：尝试从「"front": "..."」式片段提取
+    out = {}
+    for k in keys:
+        m = re.search(rf'["\']?{k}["\']?\s*[:：]\s*["\'](.*?)["\']', text, re.S)
+        out[k] = m.group(1).strip() if m else ""
+    if not any(out.values()):
+        # 再退化：整段作为 front
+        out[keys[0]] = text.strip()
+    return out
+
+
+def generate_character_three_view(character, project_id=None):
+    """为角色生成 前/侧/后 三视角设定提示词，返回 {front, side, back}。
+
+    不消耗图片额度，仅耗 token。三视图用于丰富角色一致性锁锁定描述（防变脸）。
+    """
+    import re
+    name = character.get("name", "")
+    role = character.get("role", "")
+    appearance = character.get("appearance", "") or ""
+    visual = character.get("visual_prompt", "") or ""
+    world_ctx = character.get("world_context", "") or ""
+    ctx = []
+    if appearance:
+        ctx.append(f"已有外貌描述：{appearance}")
+    if visual:
+        ctx.append(f"已有视觉提示词：{visual}")
+    if world_ctx:
+        ctx.append(f"世界观背景：{world_ctx}")
+    ctx_txt = "\n".join(ctx)
+    prompt = (
+        "你是一名专业的影视概念设定师，擅长把角色拆解为可用于 AI 出图的一致性三视图设定。"
+        "请基于角色信息，分别用一段中文视觉描述，写清该角色在【正面】【侧面】【背面】三个视角的"
+        "稳定外观特征（发型/脸型/五官/身材比例/标志性服饰/配色/随身物件），要求三视角彼此一致、"
+        "可被 AI 出图复现，避免动态动作描写。\n"
+        "严格只输出 JSON，格式：{\"front\": \"...\", \"side\": \"...\", \"back\": \"...\"}，不要任何解释。"
+    )
+    user = f"角色名：{name}\n角色定位：{role}\n{ctx_txt}"
+    try:
+        raw = _chat_json("character", prompt, user, project_id)
+    except Exception:
+        raw = _chat("character", prompt, user, project_id)
+    return _parse_view_json(raw, ["front", "side", "back"])
+
+
+def generate_scene_four_angle(scene, project_id=None):
+    """为场景生成 正打/反打/侧打/俯拍 四角度设定提示词，返回 {front, back, side, over}。
+
+    不消耗图片额度，仅耗 token。四角度用于生成场景主视觉锚并注入分镜提示词（场景一致性）。
+    """
+    import re
+    name = scene.get("name", "")
+    desc = scene.get("description", "") or ""
+    mood = scene.get("mood", "") or ""
+    ctx = []
+    if desc:
+        ctx.append(f"场景描述：{desc}")
+    if mood:
+        ctx.append(f"氛围：{mood}")
+    ctx_txt = "\n".join(ctx)
+    prompt = (
+        "你是一名专业的影视美术/场景概念设定师。请基于场景信息，分别用一段中文视觉描述，"
+        "写清该场景在【正打（主视角）】【反打（越过主体看回去）】【侧打（横向机位）】【俯拍（高位俯视）】"
+        "四个机位下的稳定画面构成（空间关系/光线/色调/关键物件/景深），要求四角度彼此连贯、"
+        "可被 AI 出图复现，避免剧情动作。\n"
+        "严格只输出 JSON，格式：{\"front\": \"...\", \"back\": \"...\", \"side\": \"...\", \"over\": \"...\"}，不要任何解释。"
+    )
+    user = f"场景名：{name}\n{ctx_txt}"
+    try:
+        raw = _chat_json("scene", prompt, user, project_id)
+    except Exception:
+        raw = _chat("scene", prompt, user, project_id)
+    return _parse_view_json(raw, ["front", "back", "side", "over"])

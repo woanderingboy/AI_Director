@@ -6,6 +6,7 @@ import base64
 from .script_generator import ScriptGenerator
 from .prompt_generator import PromptGenerator
 from .llm_client import LLMClient
+from web.models.database import db
 
 
 class PipelineService:
@@ -113,6 +114,49 @@ class PipelineService:
             return lock_map
         except Exception:
             return {}
+
+    def _build_scene_anchor_map(self, project_id=None):
+        """构建场景一致性锚映射：{地点名: 场景库主视觉锚}。仅含已生成四角度者。"""
+        if not project_id:
+            return {}
+        try:
+            from web.models.novel_models import SceneLibrary
+            scenes = SceneLibrary.query.filter_by(project_id=project_id).all()
+            return {s.name: (s.visual_prompt or "").strip() for s in scenes if (s.visual_prompt or "").strip()}
+        except Exception:
+            return {}
+
+    def _auto_script_doctor(self, project_id, script_data, project_name=None):
+        """gen_prompts 后确定性跑 Script Doctor 体检并存档（零 LLM 成本）。
+
+        存档到 script_doctor_reports，前端 Script Doctor 面板据此展示「每章自动体检」结果与问题。
+        """
+        if not project_id or not script_data:
+            return
+        try:
+            from web.models.novel_models import NovelCharacter, ScriptDoctorReport
+            from web.services.script_doctor import analyze_scripts
+            lib = [c.to_dict() for c in NovelCharacter.query.filter_by(project_id=project_id).all()]
+            import time
+            t0 = time.time()
+            report = analyze_scripts([script_data], lib)
+            cost = round(time.time() - t0, 3)
+            report["project_id"] = project_id
+            report["project_name"] = project_name
+            chapter_key = (script_data.get("title") or "").strip()
+            # 同章节只保留最新一份
+            old = ScriptDoctorReport.query.filter_by(project_id=project_id, chapter_key=chapter_key).first()
+            if old:
+                db.session.delete(old)
+            rec = ScriptDoctorReport(
+                project_id=project_id, chapter_key=chapter_key,
+                report_json=json.dumps(report, ensure_ascii=False), runtime_seconds=cost,
+            )
+            db.session.add(rec)
+            db.session.commit()
+        except Exception:
+            # 体检失败绝不阻断主流程
+            pass
 
     def _build_globals_context(self, project_id=None):
         """构建全局设定上下文字符串，含角色视觉档案"""
@@ -402,6 +446,9 @@ class PipelineService:
         # 构建「角色一致性锁」映射：开启锁且锁定描述非空的角色 → 注入字符串
         locked_map = self._build_consistency_lock_map(proj_id)
 
+        # 构建「场景一致性锚」映射：地点名 → 场景库主视觉锚（四角度生成后才有值）
+        scene_anchor_map = self._build_scene_anchor_map(proj_id)
+
         # 构建全局设定上下文
         globals_ctx = self._build_globals_context(proj_id)
         custom_prompt = self._get_stage_prompt("gen_prompts", proj_id)
@@ -525,6 +572,18 @@ class PipelineService:
             if locked_chars:
                 shot["locked_characters"] = locked_chars
 
+            # 注入「场景一致性锚」：若该分镜所在地点已在场景库生成四角度主视觉锚，
+            # 强制写入该分镜提示词，提升跨镜头场景观感一致性（与角色锁同机制，不耗额度）。
+            if scene_anchor_map and loc:
+                san = scene_anchor_map.get(loc)
+                if san:
+                    vp = shot.get("video_prompt", "")
+                    tag = f"【场景设定·{loc}】{san}"
+                    if tag not in vp:
+                        vp = (vp + "，" + tag) if vp else tag
+                        shot["video_prompt"] = vp
+                        shot["scene_anchor"] = san
+
             # 注入【素材参考】声明：把该镜用到的角色/场景按全局图例编号，
             # 写入 video_prompt 首段，与打包重命名的 0N.jpg 一一对应。
             _decl_shot = {"characters": shot_chars, "location": loc or ""}
@@ -549,6 +608,9 @@ class PipelineService:
 
         # 写小说版本标记：07_Prompt 目录记录本产物基于的小说版本
         self._write_novel_version_marker(prompt_dir, self._current_novel_version(kwargs.get("project_id"), project_name))
+
+        # 自动剧本体检：gen_prompts 后确定性跑 Script Doctor，存档供前端展示（零成本）
+        self._auto_script_doctor(proj_id, script_data, project_name)
 
         return {"shots": len(shots), "files": saved_files}
 

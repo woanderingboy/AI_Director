@@ -74,10 +74,21 @@ def toggle_character_lock(project_id, char_id):
     new_state = data.get("consistency_lock", not char.consistency_lock)
     char.consistency_lock = bool(new_state)
 
-    # 自动合成锁定描述：优先用已填 locked_prompt，否则用外貌+视觉提示词拼合
+    # 自动合成锁定描述：优先级 locked_prompt > 三视图 > 外貌+视觉提示词
     if char.consistency_lock:
         if not (char.locked_prompt or "").strip():
-            parts = [x for x in [char.appearance, char.visual_prompt] if x and x.strip()]
+            # 三视图最丰富，优先用于防变脸
+            tv = (char.three_view_prompt or "").strip()
+            if tv:
+                try:
+                    tvd = json.loads(tv)
+                    parts = [v for v in [tvd.get("front"), tvd.get("side"), tvd.get("back")] if v and v.strip()]
+                except Exception:
+                    parts = [tv]
+                if not parts:
+                    parts = [x for x in [char.appearance, char.visual_prompt] if x and x.strip()]
+            else:
+                parts = [x for x in [char.appearance, char.visual_prompt] if x and x.strip()]
             char.locked_prompt = "；".join(parts)
     db.session.commit()
     return jsonify(char.to_dict())
