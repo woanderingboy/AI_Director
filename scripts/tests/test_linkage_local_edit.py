@@ -65,7 +65,7 @@ class DummyProgress:
 
 
 from web import create_app
-from web.models.database import ScriptModel
+from web.models.database import db, ScriptModel, ProjectModel
 from web.models.novel_models import NovelChapter
 from web.models.asset_models import AssetVersion
 from web.services.pipeline_service import PipelineService
@@ -82,9 +82,31 @@ def unique_name(p):
     return f"{p}_{TS}"
 
 
+def orphan_av_cleanup():
+    """清理上一轮测试遗留的 AssetVersion：项目已被删除（孤儿）的版本。
+    只删孤儿，不动真实项目（末日快递王等）的版本，避免污染真实数据。"""
+    try:
+        with app.app_context():
+            alive = {p.id for p in ProjectModel.query.all()}
+            if not alive:
+                return
+            n = AssetVersion.query.filter(AssetVersion.project_id.notin_(alive)).delete()
+            db.session.commit()
+            emit(f"  清理孤儿 AssetVersion: {n}")
+    except Exception as e:
+        emit(f"  orphan_av_cleanup 跳过: {e}")
+
+
 def cleanup(pid, name):
     try:
         client.delete(f"/api/projects/{pid}")
+    except Exception:
+        pass
+    # 项目删除不级联 AssetVersion；显式清理本项目的最终版标记，避免泄漏到下一轮
+    try:
+        with app.app_context():
+            AssetVersion.query.filter_by(project_id=pid).delete()
+            db.session.commit()
     except Exception:
         pass
     d = os.path.join(ROOT_PATH, "02_Projects", name)
@@ -248,8 +270,8 @@ def phase5_final_protection(pid, name, chs0_id):
     new_data = read_prompt(fp)
     preserved = tag in (new_data.get("video_prompt") or "")
     check("P5 重跑保留手改分镜(final 保护)", preserved,
-          "⚠ 重跑后精修后缀丢失：标记最终版并未阻止 gen_prompts 覆盖 07_Prompt（已知限制/缺陷，用户手改分镜在重跑时会丢失）"
-          if not preserved else "保留", severity="WARN")
+          "重跑后用户精修(【用户精修标记XYZ】)已保留，gen_prompts 未覆盖已定版分镜" if preserved
+          else "缺陷：重跑覆盖了用户已定版分镜", severity="FAIL")
 
 
 def phase6_consistency_lock(pid, name):
@@ -330,6 +352,7 @@ def phase8_scan_idempotent(pid, name):
 
 
 def main():
+    orphan_av_cleanup()  # 先清掉上一轮遗留的孤儿 AssetVersion（最终版标记泄漏）
     name = unique_name("联动_本地修改")
     r = client.post("/api/projects", json={"name": name, "description": "linkage test", "genre": "测试"})
     check("建项目201", r.status_code == 201, str(r.status_code))

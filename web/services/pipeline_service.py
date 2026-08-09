@@ -505,22 +505,39 @@ class PipelineService:
         from web.services.storyboard_assets import (
             build_legend_from_shots, read_prompt_shots, refs_for_shot, declaration_for_shot,
         )
-        _prev_shots = read_prompt_shots(proj_path, project_name)
-        _cur_decl = [
-            {"characters": shot_characters.get(shot.get("shot_id"), []),
-             "location": shot_locations.get(shot.get("shot_id")) or ""}
-            for shot in shots
-        ]
-        _legend, _legend_idx = build_legend_from_shots(list(_prev_shots) + _cur_decl)
 
         # 稳定命名：以「剧本文件 stem」为基（如「第一章·离站_script」），保证重跑时覆盖而非新增，
         # 避免出现「LLM 生成的剧本标题每次不同 → 提示词文件名每次不同 → 累积孤儿文件」的问题。
         script_stem = os.path.splitext(os.path.basename(script.file_path))[0] if (script and script.file_path) else "unknown"
         base = script_stem
 
-        # 重跑清理：删除本剧本对应的旧提示词文件（同 base），防止孤儿累积
+        # 计算「用户已锁定的最终版分镜」：is_final 的 storyboard_prompt AssetVersion。
+        # gen_prompts 重跑时不得删除/覆盖这些文件——预设提示词只是系统默认，用户最终版优先。
+        from web.models.asset_models import AssetVersion
+        final_stems = set()
+        if proj_id:
+            for av in AssetVersion.query.filter_by(
+                project_id=proj_id, asset_type="storyboard_prompt", is_final=True
+            ).all():
+                if av.asset_key and av.asset_key.startswith(f"{base}_prompt_"):
+                    final_stems.add(av.asset_key)
+
+        _prev_shots = read_prompt_shots(proj_path, project_name)
+        _cur_decl = [
+            {"characters": shot_characters.get(shot.get("shot_id"), []),
+             "location": shot_locations.get(shot.get("shot_id")) or ""}
+            for shot in shots
+            if f"{base}_prompt_S{shot.get('shot_id', 0):02d}" not in final_stems
+        ]
+        _legend, _legend_idx = build_legend_from_shots(list(_prev_shots) + _cur_decl)
+
+        # 重跑清理：删除本剧本对应的旧提示词文件（同 base），防止孤儿累积。
+        # 但「用户已标记最终版」的分镜（final_stems）保留，不被删除——保护用户精修。
         try:
             for old in glob.glob(os.path.join(prompt_dir, f"{base}_prompt_*.json")):
+                stem = os.path.splitext(os.path.basename(old))[0]
+                if stem in final_stems:
+                    continue
                 os.remove(old)
         except Exception:
             pass
@@ -536,6 +553,11 @@ class PipelineService:
             shot_id = shot.get("shot_id", i + 1)
             filename = f"{base}_prompt_S{shot_id:02d}.json"
             filepath = os.path.join(prompt_dir, filename)
+
+            # 用户已标记最终版的分镜：保留用户在分镜画布的精修，跳过本镜重写
+            # （预设提示词只是系统默认；一旦用户定版，重跑不得覆盖）。
+            if os.path.splitext(filename)[0] in final_stems:
+                continue
 
             # 注入全局设定到每个 prompt（幂等、去重，单一入口）
             gs = self._get_global_settings(proj_id)
