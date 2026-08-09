@@ -165,8 +165,15 @@ def _analyze(project_id, prompt_text=""):
         })
 
     has_files = len(groups) > 0
+    # 全局素材图例（角色/场景按分镜出现顺序编号），供前端预览与导出重命名共用
+    try:
+        from web.services.storyboard_assets import build_legend_from_shots
+        _legend, _ = build_legend_from_shots(shots)
+    except Exception:
+        _legend = []
     return {
         "project_name": project_name,
+        "legend": _legend,
         "shots": [{"shot_id": s.get("shot_id"), "characters": s.get("characters"),
                    "location": s.get("location")} for s in shots],
         "assets": assets,
@@ -273,8 +280,40 @@ def export_package(pkg_id):
     export_dir = data.get("export_dir", os.path.join(root_path, "04_Output", f"package_{pkg.id}"))
     os.makedirs(export_dir, exist_ok=True)
 
-    exported, errors, used = [], [], []
+    # 全局素材图例：按分镜出现顺序排列角色/场景，导出文件名 01/02… 与之对应
+    try:
+        from web.services.storyboard_assets import build_asset_legend
+        _legend, _ = build_asset_legend(root_path, project_name)
+    except Exception:
+        _legend = []
+    _legend_idx_by_name = {_norm(e["name"]): e["index"] for e in _legend}
+    _legend_kind = {e["index"]: e["kind"] for e in _legend}
+    _legend_name = {e["index"]: e["name"] for e in _legend}
+
+    # 为每条资产分配图号：图例命中的用图例编号，其余顺延填充
+    _target = {}        # asset_key -> 图号
+    _used_idx = set()
+    _max_legend = max([e["index"] for e in _legend], default=0)
+    _next_free = 1
     for a in assets:
+        gk = a["asset_key"].split(":", 1)[-1]   # filegroup:xxx / ref:xxx
+        gi = _legend_idx_by_name.get(_norm(gk))
+        if gi and gi not in _used_idx:
+            _target[a["asset_key"]] = gi
+            _used_idx.add(gi)
+    for a in assets:
+        if a["asset_key"] in _target:
+            continue
+        while _next_free <= _max_legend or _next_free in _used_idx:
+            _next_free += 1
+        _target[a["asset_key"]] = _next_free
+        _used_idx.add(_next_free)
+        _next_free += 1
+
+    # 按图号排序后导出，命名为 01.jpg / 02.jpg …（不做自动关联，纯按图例顺序重命名）
+    _ordered = sorted(assets, key=lambda a: _target.get(a["asset_key"], 10 ** 9))
+    exported, errors, used = [], [], []
+    for a in _ordered:
         if a.get("optional") and a["status"] == "missing":
             continue
         final = a.get("final_file")
@@ -285,14 +324,21 @@ def export_package(pkg_id):
             errors.append(f"最终版文件不存在: {final}")
             continue
         ext = os.path.splitext(cand["path"])[1]
-        safe_key = _norm(a["asset_key"]).replace(":", "_")[:40] or "asset"
-        dst = os.path.join(export_dir, f"{safe_key}{ext}")
+        gi = _target[a["asset_key"]]
+        dst_name = f"{gi:02d}{ext}"
+        dst = os.path.join(export_dir, dst_name)
         if os.path.exists(dst):
-            dst = os.path.join(export_dir, f"{safe_key}_{len(exported)}{ext}")
+            dst = os.path.join(export_dir, f"{gi:02d}_{len(exported)}{ext}")
         try:
             shutil.copy2(cand["path"], dst)
             exported.append(dst)
-            used.append({"asset_key": a["asset_key"], "file": os.path.basename(dst)})
+            used.append({
+                "asset_key": a["asset_key"],
+                "file": os.path.basename(dst),
+                "fig": f"图{gi}",
+                "kind": _legend_kind.get(gi, ""),
+                "name": _legend_name.get(gi, ""),
+            })
         except Exception as e:
             errors.append(f"复制失败 {final}: {e}")
 
@@ -309,6 +355,8 @@ def export_package(pkg_id):
     index_data = {
         "project": project_name or "unknown",
         "export_time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "legend": _legend,
+        "asset_map": {u["file"]: {k: u[k] for k in ("file", "fig", "kind", "name", "asset_key")} for u in used},
         "shots": [],
         "assets": used,
     }

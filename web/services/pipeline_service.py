@@ -457,6 +457,11 @@ class PipelineService:
 
         shots = prompt_data.get("shots", [])
 
+        # 构建全局素材图例（角色/场景按分镜出现顺序编号），
+        # 供每条提示词注入【素材参考】声明，并与打包重命名共用同一编号。
+        from web.services.storyboard_assets import build_legend_from_shots, refs_for_shot, declaration_for_shot
+        _legend, _legend_idx = build_legend_from_shots(script_shots)
+
         # 稳定命名：以「剧本文件 stem」为基（如「第一章·离站_script」），保证重跑时覆盖而非新增，
         # 避免出现「LLM 生成的剧本标题每次不同 → 提示词文件名每次不同 → 累积孤儿文件」的问题。
         script_stem = os.path.splitext(os.path.basename(script.file_path))[0] if (script and script.file_path) else "unknown"
@@ -509,6 +514,18 @@ class PipelineService:
                 shot["location"] = loc
             if locked_chars:
                 shot["locked_characters"] = locked_chars
+
+            # 注入【素材参考】声明：把该镜用到的角色/场景按全局图例编号，
+            # 写入 video_prompt 首段，与打包重命名的 0N.jpg 一一对应。
+            _decl_shot = {"characters": shot_chars, "location": loc or ""}
+            _decl = declaration_for_shot(_decl_shot, _legend_idx)
+            if _decl:
+                vp = shot.get("video_prompt", "")
+                shot["video_prompt"] = (_decl + "\n\n" + vp) if vp else _decl
+                shot["asset_refs"] = [
+                    {"fig": f"图{idx}", "kind": kind, "name": name}
+                    for idx, kind, name in refs_for_shot(_decl_shot, _legend_idx)
+                ]
 
             with open(filepath, "w", encoding="utf-8") as f:
                 json.dump(shot, f, ensure_ascii=False, indent=2)

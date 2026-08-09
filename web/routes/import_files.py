@@ -240,3 +240,89 @@ def import_image(project_id):
         "ok": True, "filename": os.path.basename(dst), "path": dst,
         "message": f"已导入图片：{os.path.basename(dst)}",
     })
+
+
+@bp.route("/<int:project_id>/import-package", methods=["POST"])
+def import_package(project_id):
+    """重新导入一个「已导出的素材打包文件夹」到本项目（闭环「打包导出 → 直接导入」）。
+
+    导出文件夹结构（见 asset_packages.export）：
+      - prompts/*.json   分镜提示词（原 07_Prompt 内容）
+      - <图片/视频文件>   资产（根目录，按扩展名区分）
+      - index.json        清单（跳过，不导入）
+
+    行为：
+      - prompts/*.json → 02_Projects/{项目}/07_Prompt/
+      - 图片           → 08_Image/
+      - 视频           → 09_Video/
+      - 幂等：同名文件已存在则跳过（记 skipped），不覆盖用户既有产物。
+    仅做文件落地；分镜画布/打包分析均为读盘驱动，导入后即可直接查看与再次打包。
+    """
+    proj, proj_path = _proj_path(project_id)
+    if not proj:
+        return jsonify({"error": "项目不存在"}), 404
+    data = request.get_json(silent=True) or {}
+    pkg_dir = (data.get("package_dir") or request.form.get("package_dir") or "").strip()
+    if not pkg_dir or not os.path.isdir(pkg_dir):
+        return jsonify({"error": "请提供有效的 package_dir（已导出的打包文件夹绝对路径）"}), 400
+
+    # 1) 提示词
+    prompt_src = os.path.join(pkg_dir, "prompts")
+    prompt_dst = os.path.join(proj_path, "07_Prompt")
+    os.makedirs(prompt_dst, exist_ok=True)
+    imported_prompts, skipped_prompts = [], []
+    if os.path.isdir(prompt_src):
+        for f in sorted(os.listdir(prompt_src)):
+            if not f.endswith(".json"):
+                continue
+            dst = os.path.join(prompt_dst, f)
+            if os.path.exists(dst):
+                skipped_prompts.append(f)
+                continue
+            shutil.copy2(os.path.join(prompt_src, f), dst)
+            imported_prompts.append(f)
+
+    # 2) 资产（图片/视频，按扩展名落位）
+    img_dst = os.path.join(proj_path, "08_Image")
+    vid_dst = os.path.join(proj_path, "09_Video")
+    os.makedirs(img_dst, exist_ok=True)
+    os.makedirs(vid_dst, exist_ok=True)
+    IMG_EXT = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
+    VID_EXT = (".mp4", ".mov", ".webm")
+    imported_assets, skipped_assets = [], []
+    for f in sorted(os.listdir(pkg_dir)):
+        low = f.lower()
+        if low.endswith(IMG_EXT):
+            dst = os.path.join(img_dst, f)
+            if os.path.exists(dst):
+                skipped_assets.append(f)
+                continue
+            shutil.copy2(os.path.join(pkg_dir, f), dst)
+            imported_assets.append(f)
+        elif low.endswith(VID_EXT):
+            dst = os.path.join(vid_dst, f)
+            if os.path.exists(dst):
+                skipped_assets.append(f)
+                continue
+            shutil.copy2(os.path.join(pkg_dir, f), dst)
+            imported_assets.append(f)
+
+    if not imported_prompts and not imported_assets:
+        return jsonify({
+            "ok": True,
+            "imported_prompts": [], "skipped_prompts": skipped_prompts,
+            "imported_assets": [], "skipped_assets": skipped_assets,
+            "message": "打包文件夹中未发现可导入的提示词或资产文件（可能为空或内容已存在）。",
+        })
+
+    return jsonify({
+        "ok": True,
+        "imported_prompts": imported_prompts,
+        "skipped_prompts": skipped_prompts,
+        "imported_assets": imported_assets,
+        "skipped_assets": skipped_assets,
+        "message": (
+            f"已导入 {len(imported_prompts)} 个提示词、{len(imported_assets)} 个资产；"
+            f"跳过已存在 {len(skipped_prompts) + len(skipped_assets)} 个。"
+        ),
+    })
