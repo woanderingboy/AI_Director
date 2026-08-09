@@ -6,6 +6,7 @@ import base64
 from .script_generator import ScriptGenerator
 from .prompt_generator import PromptGenerator
 from .llm_client import LLMClient
+from web.services.prompt_assembly import inject_globals, get_project_globals
 from web.models.database import db
 
 
@@ -20,18 +21,8 @@ class PipelineService:
         return os.path.join(self.projects_path, project_name)
 
     def _get_global_settings(self, project_id=None):
-        """读取项目全局设定"""
-        if not project_id:
-            return {}
-        try:
-            from web.models.database import ProjectConfig
-            pc = ProjectConfig.query.filter_by(project_id=project_id).first()
-            if pc and pc.system_prompts:
-                prompts = json.loads(pc.system_prompts)
-                return prompts.get("__globals__", {})
-        except Exception:
-            pass
-        return {}
+        """读取项目全局设定（委托 prompt_assembly.get_project_globals 单访问器）。"""
+        return get_project_globals(project_id)
 
     def _get_client_for_stage(self, stage, project_id=None):
         """根据阶段获取独立配置的 LLM 客户端"""
@@ -541,12 +532,9 @@ class PipelineService:
             filename = f"{base}_prompt_S{shot_id:02d}.json"
             filepath = os.path.join(prompt_dir, filename)
 
-            # 注入全局设定到每个 prompt
+            # 注入全局设定到每个 prompt（幂等、去重，单一入口）
             gs = self._get_global_settings(proj_id)
-            if gs.get("positive_prompts") and "video_prompt" in shot:
-                shot["video_prompt"] = shot["video_prompt"] + ", " + gs["positive_prompts"]
-            if gs.get("negative_prompts") and "negative_prompt" in shot:
-                shot["negative_prompt"] = shot["negative_prompt"] + ", " + gs["negative_prompts"]
+            inject_globals(shot, gs)
 
             # 注入「角色一致性锁」：把锁定角色的外观描述强制写入该分镜视频提示词，防变脸
             shot_chars = shot_characters.get(shot_id, [])

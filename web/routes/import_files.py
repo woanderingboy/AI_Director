@@ -15,6 +15,7 @@ import shutil
 from flask import Blueprint, request, jsonify, current_app
 from web.models.database import db
 from web.models.novel_models import NovelChapter
+from web.paths import PROJECT_SUBDIRS
 
 bp = Blueprint("import_files", __name__)
 
@@ -28,6 +29,11 @@ CHAPTER_RE = re.compile(
     r")",
     re.IGNORECASE,
 )
+
+
+def _sub(proj_path, cat):
+    """返回 02_Projects/<项目>/<cat 对应子目录>；cat 为 PROJECT_SUBDIRS 的键。"""
+    return os.path.join(proj_path, PROJECT_SUBDIRS[cat])
 
 
 def _proj_path(project_id):
@@ -97,7 +103,7 @@ def scan_novels(project_id):
     proj, proj_path = _proj_path(project_id)
     if not proj:
         return jsonify({"error": "项目不存在"}), 404
-    story_dir = os.path.join(proj_path, "04_Story")
+    story_dir = _sub(proj_path, "story")
     os.makedirs(story_dir, exist_ok=True)
     marker = _read_marker(story_dir, "novel")
     imported, skipped = [], []
@@ -146,8 +152,8 @@ def scan_scripts(project_id):
     proj, proj_path = _proj_path(project_id)
     if not proj:
         return jsonify({"error": "项目不存在"}), 404
-    import_dir = os.path.join(proj_path, "03_Import")
-    script_dir = os.path.join(proj_path, "05_Script")
+    import_dir = _sub(proj_path, "import")
+    script_dir = _sub(proj_path, "script")
     os.makedirs(import_dir, exist_ok=True)
     os.makedirs(script_dir, exist_ok=True)
     marker = _read_marker(import_dir, "script")
@@ -226,7 +232,7 @@ def import_image(project_id):
     if ext not in (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"):
         ext = ".png"
 
-    image_dir = os.path.join(proj_path, "08_Image")
+    image_dir = _sub(proj_path, "image")
     os.makedirs(image_dir, exist_ok=True)
     dst = os.path.join(image_dir, name + ext)
     if os.path.exists(dst):
@@ -268,7 +274,7 @@ def import_package(project_id):
 
     # 1) 提示词
     prompt_src = os.path.join(pkg_dir, "prompts")
-    prompt_dst = os.path.join(proj_path, "07_Prompt")
+    prompt_dst = _sub(proj_path, "prompt")
     os.makedirs(prompt_dst, exist_ok=True)
     imported_prompts, skipped_prompts = [], []
     if os.path.isdir(prompt_src):
@@ -283,8 +289,8 @@ def import_package(project_id):
             imported_prompts.append(f)
 
     # 2) 资产（图片/视频，按扩展名落位）
-    img_dst = os.path.join(proj_path, "08_Image")
-    vid_dst = os.path.join(proj_path, "09_Video")
+    img_dst = _sub(proj_path, "image")
+    vid_dst = _sub(proj_path, "video")
     os.makedirs(img_dst, exist_ok=True)
     os.makedirs(vid_dst, exist_ok=True)
     IMG_EXT = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp")
@@ -446,7 +452,7 @@ def import_external(project_id):
                            + ("（已刷新为最终版）" if as_final else ""),
             })
 
-        image_dir = os.path.join(proj_path, "08_Image")
+        image_dir = _sub(proj_path, "image")
         os.makedirs(image_dir, exist_ok=True)
         dst = os.path.join(image_dir, asset_key + ext)
         if os.path.exists(dst):
@@ -499,7 +505,7 @@ def import_external(project_id):
                        + ("（已刷新为最终版）" if as_final else ""),
         })
 
-    prompt_dir = os.path.join(proj_path, "07_Prompt")
+    prompt_dir = _sub(proj_path, "prompt")
     os.makedirs(prompt_dir, exist_ok=True)
     dst = os.path.join(prompt_dir, asset_key + ".json")
     if os.path.exists(dst):

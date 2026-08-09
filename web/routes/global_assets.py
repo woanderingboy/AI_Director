@@ -135,3 +135,27 @@ def apply_suggestion():
     filename = f"{name}.yaml"
     loader.save_asset(category, filename, content)
     return jsonify({"ok": True, "path": f"{category}/{filename}"})
+
+
+@bp.route("/sync-from-finals", methods=["POST"])
+def sync_from_finals():
+    """一键把最终资产 / 项目习惯整理进全局资产库。
+
+    请求体：{"project_id": 21(可选), "use_llm": false, "dry_run": false}
+    - 不传 project_id：扫描所有项目的最终资产
+    - use_llm=true：调用大模型补充描述/提示词（需已配置 Key，否则退回规则结果）
+    - dry_run=true：只返回将要新增的清单，不落盘
+    """
+    from web.services.asset_habit_sync import sync_final_assets_to_globals
+
+    data = request.get_json() or {}
+    project_id = data.get("project_id")
+    use_llm = bool(data.get("use_llm", False))
+    dry_run = bool(data.get("dry_run", False))
+    try:
+        report = sync_final_assets_to_globals(
+            project_id=project_id, use_llm=use_llm, dry_run=dry_run)
+        return jsonify({"ok": True, **report})
+    except Exception as e:
+        current_app.logger.exception("sync-from-finals 失败")
+        return jsonify({"error": str(e)}), 500

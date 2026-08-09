@@ -6,6 +6,7 @@ from flask import Blueprint, jsonify, request, current_app
 from web.models.database import db, ProjectModel
 from web.models.novel_models import NovelCharacter
 from web.services.script_doctor import analyze_scripts
+from web.config import root_path as _root_path
 
 bp = Blueprint("script_doctor", __name__, url_prefix="/api")
 
@@ -32,7 +33,7 @@ def doctor_report(project_id):
     project = ProjectModel.query.get(project_id)
     if not project:
         return jsonify({"error": "项目不存在"}), 404
-    root = current_app.config.get("ROOT_PATH") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root = current_app.config.get("ROOT_PATH") or _root_path()
     scripts = _scan_script_files(root, project.name)
     lib = [c.to_dict() for c in NovelCharacter.query.filter_by(project_id=project_id).all()]
     report = analyze_scripts(scripts, lib)
@@ -47,7 +48,7 @@ def doctor_ai_review(project_id):
     project = ProjectModel.query.get(project_id)
     if not project:
         return jsonify({"error": "项目不存在"}), 404
-    root = current_app.config.get("ROOT_PATH") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    root = current_app.config.get("ROOT_PATH") or _root_path()
     scripts = _scan_script_files(root, project.name)
     if not scripts:
         return jsonify({"error": "未找到剧本，请先生成剧本"}), 400

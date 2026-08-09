@@ -1,6 +1,7 @@
 """项目级全局设定 - 含人物形象系统（多状态服装）"""
 from flask import Blueprint, request, jsonify
 from web.models.database import db, ProjectConfig
+from web.services.prompt_assembly import get_project_globals
 import json
 
 bp = Blueprint("project_globals", __name__)
@@ -8,10 +9,7 @@ bp = Blueprint("project_globals", __name__)
 
 @bp.route("/projects/<int:project_id>/globals", methods=["GET"])
 def get_globals(project_id):
-    config = ProjectConfig.query.filter_by(project_id=project_id).first()
-    if not config:
-        return jsonify(_default_globals())
-    globals_data = json.loads(config.system_prompts).get("__globals__", {}) if config.system_prompts else {}
+    globals_data = get_project_globals(project_id)
     return jsonify({**_default_globals(), **globals_data})
 
 

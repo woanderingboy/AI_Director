@@ -45,23 +45,9 @@ def _read(path):
 
 
 def _load_volc_key():
-    """优先取环境变量 VOLC_API_KEY，否则直接解析项目 .env。"""
-    key = os.environ.get("VOLC_API_KEY", "")
-    if key:
-        return key
-    cand = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        ".env",
-    )
-    if os.path.exists(cand):
-        try:
-            with open(cand, encoding="utf-8") as f:
-                for line in f:
-                    if line.startswith("VOLC_API_KEY="):
-                        return line.split("=", 1)[1].strip().strip('"').strip("'")
-        except Exception:
-            pass
-    return ""
+    """优先取环境变量 VOLC_API_KEY，否则由统一配置层解析项目 .env。"""
+    from web.config import volc_key
+    return volc_key()
 
 
 def _get_appearance_client(project_id):

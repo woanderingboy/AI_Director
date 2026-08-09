@@ -102,14 +102,49 @@ def build_full_prompt(shot, g, characters=None):
     return "\n\n".join(parts)
 
 
-def get_project_globals_dict(project_id):
-    """从 project_configs 读取 __globals__（含 character_voices 扩展字段）。"""
+def get_project_globals(project_id):
+    """从 project_configs 读取 __globals__（含 character_voices 扩展字段）。
+
+    这是全局设定的【唯一】访问器：pipeline_service._get_global_settings 与
+    routes/project_globals.py 现均委托此处，避免三处重复解析 system_prompts。
+    """
+    if not project_id:
+        return {}
     try:
+        import json
         from web.models.database import ProjectConfig
         cfg = ProjectConfig.query.filter_by(project_id=project_id).first()
         if not cfg or not cfg.system_prompts:
             return {}
-        data = __import__("json").loads(cfg.system_prompts)
-        return data.get("__globals__", {})
+        return json.loads(cfg.system_prompts).get("__globals__", {})
     except Exception:
         return {}
+
+
+# 兼容旧名（仅 gen_s02_package.py 历史引用）
+get_project_globals_dict = get_project_globals
+
+
+def inject_globals(shot, g):
+    """幂等、去重地把项目全局设定注入分镜 shot 的【存储字段】。
+
+    与 build_full_prompt（交付包装）不同，本函数只服务于「生成/落盘」步骤：
+    把 positive_prompts 并入 video_prompt、negative_prompts 并入 negative_prompt，
+    二者作为独立字段保留（下游 draw_images 单读 negative_prompt 出图，不能并进 video_prompt）。
+
+    - 幂等：shot 已含该段则不重复追加（重跑 gen_prompts 不会累积）。
+    - 调用前请先完成【素材参考】图例、角色一致性锁、场景锚的注入（gen_prompts 中顺序如此）。
+    返回原地修改后的 shot。
+    """
+    g = g or {}
+    pos = (g.get("positive_prompts") or "").strip().strip("，,；; ")
+    neg = (g.get("negative_prompts") or "").strip().strip("，,；; ")
+    if pos:
+        vp = (shot.get("video_prompt") or "").strip()
+        if pos not in vp:
+            shot["video_prompt"] = (vp + "，" + pos) if vp else pos
+    if neg:
+        np_ = (shot.get("negative_prompt") or "").strip()
+        if neg not in np_:
+            shot["negative_prompt"] = (np_ + "；" + neg) if np_ else neg
+    return shot

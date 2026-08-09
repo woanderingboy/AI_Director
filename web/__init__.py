@@ -1,9 +1,11 @@
 import os
 from flask import Flask, render_template, send_from_directory
 from flask_cors import CORS
-import dotenv
 
-dotenv.load_dotenv()
+from .config import load_env_once, root_path
+from .paths import PROJECT_SUBDIRS, project_path
+
+load_env_once()
 from .models.database import db
 from .routes.projects import bp as projects_bp
 from .routes.chapters import bp as chapters_bp
@@ -32,7 +34,7 @@ from .routes.subtitle import bp as subtitle_bp
 from .services.task_manager import TaskManager
 from .services.pipeline_service import PipelineService
 
-ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT_PATH = root_path()
 
 
 def _migrate_consistency_lock(db):
@@ -50,9 +52,10 @@ def _migrate_consistency_lock(db):
                 with db.engine.connect() as conn:
                     conn.execute(text(f"ALTER TABLE novel_characters ADD COLUMN {col} {ddl}"))
                     conn.commit()
-    except Exception:
+    except Exception as e:
         # 迁移失败不应阻断启动；下次启动会重试
-        pass
+        import logging
+        logging.getLogger(__name__).warning("列迁移跳过(consistency_lock): %s", e)
 
 
 def _migrate_three_view(db):
@@ -70,8 +73,9 @@ def _migrate_three_view(db):
                 with db.engine.connect() as conn:
                     conn.execute(text(f"ALTER TABLE novel_characters ADD COLUMN {col} {ddl}"))
                     conn.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("列迁移跳过(three_view): %s", e)
 
 
 def _migrate_novel_version(db):
@@ -98,8 +102,9 @@ def _migrate_novel_version(db):
                 with db.engine.connect() as conn:
                     conn.execute(text(f"ALTER TABLE scripts ADD COLUMN {col} {ddl}"))
                     conn.commit()
-    except Exception:
-        pass
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("列迁移跳过(novel_version): %s", e)
 
 
 def create_app(config_overrides=None):
@@ -108,7 +113,13 @@ def create_app(config_overrides=None):
         template_folder=os.path.join(os.path.dirname(__file__), "templates"),
         static_folder=os.path.join(os.path.dirname(__file__), "static"),
     )
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key-123")
+    sk = os.environ.get("SECRET_KEY")
+    if not sk:
+        app.logger.warning(
+            "SECRET_KEY 未设置，使用不安全的开发默认值 'dev-key-123'；"
+            "生产/联网环境请通过环境变量设置一个强随机值。"
+        )
+    app.config["SECRET_KEY"] = sk or "dev-key-123"
     db_path = os.path.join(ROOT_PATH, "04_Output", "ai_video_data.db")
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
@@ -164,14 +175,10 @@ def create_app(config_overrides=None):
 
     @app.route("/files/<project>/<cat>/<path:filename>")
     def serve_project_file(project, cat, filename):
-        proj_root = os.path.join(ROOT_PATH, "02_Projects", project)
-        dir_map = {
-            "story": "04_Story", "script": "05_Script", "storyboard": "06_Storyboard",
-            "prompt": "07_Prompt", "image": "08_Image", "video": "09_Video",
-        }
-        if cat not in dir_map:
+        if cat not in PROJECT_SUBDIRS:
             return {"error": "unknown category"}, 400
-        target_dir = os.path.join(proj_root, dir_map[cat])
+        target_dir = project_path(project)
+        target_dir = os.path.join(target_dir, PROJECT_SUBDIRS[cat])
         return send_from_directory(target_dir, filename)
 
     with app.app_context():

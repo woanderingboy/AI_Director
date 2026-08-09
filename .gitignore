@@ -33,10 +33,20 @@ resp_air.json
 02_Projects/__pkgtest2__/
 02_Projects/_stress_*/
 
-# 04_Output 临时/压力测试产物（下划线前缀均为临时文件）
+# 压测 / 演示 / 自测 影子项目（本地留档，不入库）
+02_Projects/压测_*/
+02_Projects/打包测试演示*/
+02_Projects/全流程自测_*/
+02_Projects/离线演示项目/
+02_Projects/演示*/
+
+# 04_Output 临时/压力测试产物（下划线前缀均为临时文件；编号包与临时评审md不入库）
 04_Output/_stress_*
 04_Output/_bg.png
 04_Output/_check.js
+04_Output/package_*/
+04_Output/review_*.md
+04_Output/verify_*.md
 
 # 项目目录内压力测试遗留脚本
 **/__stress_*
