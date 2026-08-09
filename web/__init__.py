@@ -19,6 +19,7 @@ from .routes.novel_characters import bp as novel_characters_bp
 from .routes.novel_outline import bp as novel_outline_bp
 from .routes.novel_chapters import bp as novel_chapters_bp
 from .routes.novel_chat import bp as novel_chat_bp
+from .routes.inkos_import import bp as inkos_import_bp
 from .routes.asset_versions import bp as asset_versions_bp
 from .routes.asset_packages import bp as asset_packages_bp
 from .routes.project_globals import bp as project_globals_bp
@@ -123,6 +124,7 @@ def create_app(config_overrides=None):
     app.register_blueprint(novel_outline_bp, url_prefix="/api/novel")
     app.register_blueprint(novel_chapters_bp, url_prefix="/api/novel")
     app.register_blueprint(novel_chat_bp, url_prefix="/api/novel")
+    app.register_blueprint(inkos_import_bp, url_prefix="/api/novel")
     app.register_blueprint(asset_versions_bp, url_prefix="/api/asset-versions")
     app.register_blueprint(asset_packages_bp, url_prefix="/api/asset-packages")
     app.register_blueprint(project_globals_bp, url_prefix="/api")

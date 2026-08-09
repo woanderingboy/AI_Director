@@ -491,6 +491,8 @@ function renderTopBar() {
   if (btnBack) btnBack.onclick = () => { S.view = 'novel'; S.currentProject = null; render(); };
   const btnBackNovel = bar.querySelector('#btnBackNovel');
   if (btnBackNovel) btnBackNovel.onclick = () => { S.view = 'novel'; S.novelProject = null; render(); };
+  const btnImportInkos = bar.querySelector('#btnImportInkos');
+  if (btnImportInkos) btnImportInkos.onclick = () => showImportInkosModal();
   return bar;
 }
 
@@ -1190,6 +1192,7 @@ function renderNovelProject(c) {
       <!-- 左侧阶段导航 -->
       <div style="width:180px;min-width:180px;overflow-y:auto;padding-right:12px;border-right:1px solid var(--border)">
         <div class="text-sm text-muted mb-2">${esc(S.novelProject?.name||'')}</div>
+        <button class="btn btn--sm btn--amber" id="btnImportInkos" style="width:100%;margin-bottom:14px;justify-content:center">📥 导入 inkos 书籍</button>
         ${groups.map(g => `
           <div class="mb-4">
             <div style="font-size:.68rem;font-weight:600;color:${g.color};text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">${g.label}</div>
@@ -3175,6 +3178,111 @@ function showModal(title, bodyHTML, onConfirm) {
   modal.querySelector('#modalConfirm').onclick = async () => {
     if (onConfirm) await onConfirm();
     modal.classList.remove('show');
+  };
+}
+
+function showImportInkosModal() {
+  const pid = S.novelProject && S.novelProject.id;
+  if (!pid) { toast('请先打开一个小说项目'); return; }
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal">
+      <div class="modal__header"><div class="modal__title">📥 导入 inkos 书籍</div><button class="modal__close" id="inkosClose">✕</button></div>
+      <div class="modal__body">
+        <p class="text-sm text-muted" style="margin-top:0">将 inkos 多智能体生成的小说地基（世界观 / 角色 / 大纲 / 分卷 / 章节）回写到本项目，并可自动生成角色外貌提示词、打通一致性锁。</p>
+        <div class="form-group">
+          <label>探测到的本机 inkos 书籍</label>
+          <div style="display:flex;gap:8px">
+            <select id="inkosBookSelect" style="flex:1">
+              <option value="__manual__">（手动输入路径）</option>
+            </select>
+            <button class="btn btn--sm" id="inkosRescan" type="button">🔄 重新探测</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>书籍目录（inkos books/书名，需含 book.json 与 story/）</label>
+          <input type="text" id="inkosBookDir" placeholder="例：C:/Users/Administrator/.inkos_smoke_test/books/末日苏晚">
+        </div>
+        <div class="form-group" style="display:flex;flex-direction:column;gap:10px">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin:0;cursor:pointer">
+            <input type="checkbox" id="inkosGenAppearance" checked style="width:auto"> 自动生成角色外貌提示词（调用 LLM）
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400;margin:0;cursor:pointer">
+            <input type="checkbox" id="inkosAutoLock" style="width:auto"> 导入后自动开启主要角色一致性锁
+          </label>
+        </div>
+        <div id="inkosImportResult" class="text-sm" style="margin-top:12px;white-space:pre-wrap;min-height:20px;line-height:1.6"></div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" id="inkosCancel">取消</button>
+        <button class="btn btn--primary" id="inkosStart">开始导入</button>
+      </div>
+    </div>
+  `;
+  modal.classList.add('show');
+  const close = () => modal.classList.remove('show');
+  modal.querySelector('#inkosClose').onclick = close;
+  modal.querySelector('#inkosCancel').onclick = close;
+
+  const sel = modal.querySelector('#inkosBookSelect');
+  const dirInput = modal.querySelector('#inkosBookDir');
+  const res = modal.querySelector('#inkosImportResult');
+
+  async function loadBooks() {
+    res.textContent = '探测中…';
+    try {
+      const data = await api('/novel/inkos-books');
+      sel.innerHTML = '<option value="__manual__">（手动输入路径）</option>';
+      (data.books || []).forEach(b => {
+        const o = document.createElement('option');
+        o.value = b.dir; o.textContent = b.title + '  —  ' + b.dir;
+        sel.appendChild(o);
+      });
+      if ((data.books || []).length) {
+        dirInput.value = data.books[0].dir;
+        res.textContent = `探测到 ${data.books.length} 本 inkos 书籍，已自动填入第一本。`;
+      } else {
+        res.textContent = '未探测到 inkos 书籍，请手动填写目录路径（或先 inkos init + book create）。';
+      }
+    } catch (e) {
+      res.textContent = '探测失败：' + (e.message || e);
+    }
+  }
+  sel.onchange = () => { if (sel.value !== '__manual__') dirInput.value = sel.value; };
+  modal.querySelector('#inkosRescan').onclick = loadBooks;
+  loadBooks();
+
+  modal.querySelector('#inkosStart').onclick = async () => {
+    const bookDir = dirInput.value.trim();
+    if (!bookDir) { toast('请填写书籍目录'); return; }
+    const gen = modal.querySelector('#inkosGenAppearance').checked;
+    const lock = modal.querySelector('#inkosAutoLock').checked;
+    const btn = modal.querySelector('#inkosStart');
+    btn.disabled = true; btn.textContent = '导入中…';
+    res.textContent = '正在回写（若生成外貌提示词，会调用 LLM，请稍候）…';
+    try {
+      const r = await api(`/novel/${pid}/inkos-import`, {
+        method: 'POST',
+        body: { book_dir: bookDir, gen_appearance: gen, auto_lock: lock },
+      });
+      if (r.ok) {
+        const s = r.stat || {};
+        res.innerHTML = '✅ 导入完成：\n' +
+          '　世界观 ' + (s.world || 0) + '　大纲 ' + (s.outline || 0) + '　分卷节点 ' + (s.plot_points_added || 0) + '\n' +
+          '　角色 +' + (s.characters_added || 0) + ' / 更新' + (s.characters_updated || 0) +
+          '　外貌生成 ' + (s.appearances_generated || 0) + '　自动锁 ' + (s.auto_locked || 0) + '\n' +
+          '　章节 +' + (s.chapters_added || 0) + ' / 更新' + (s.chapters_updated || 0) +
+          ((s.notes && s.notes.length) ? '\n\n备注：\n' + s.notes.map(x => '　· ' + x).join('\n') : '');
+        toast('inkos 书籍已导入');
+        if (typeof loadNovelData === 'function') loadNovelData();
+      } else {
+        res.textContent = '❌ ' + (r.error || '导入失败');
+      }
+    } catch (e) {
+      res.textContent = '❌ 请求失败：' + (e.message || e);
+    } finally {
+      btn.disabled = false; btn.textContent = '开始导入';
+    }
   };
 }
 
