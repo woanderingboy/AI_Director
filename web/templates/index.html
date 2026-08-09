@@ -2489,6 +2489,9 @@ async function renderEntityGraph(c) {
     const lockBtn = ch.in_library
       ? `<button class="btn btn--sm ${ch.locked ? 'btn--green' : ''}" data-lock="${ch.name}" title="切换一致性锁">${ch.locked ? '🔒 已锁' : '🔓 锁定'}</button>`
       : `<button class="btn btn--sm btn--blue" data-addchar="${ch.name}" title="加入角色库">＋ 加入角色库</button>`;
+    const tvBadge = ch.in_library
+      ? `<span class="badge ${ch.three_view_status === 'done' ? 'badge--green' : 'badge--blue'}">${ch.three_view_status === 'done' ? '🎨 三视图已生成' : '🎨 三视图待生成'}</span>`
+      : '';
     const appr = ch.appearance
       ? `<div class="text-xs text-muted mt-1" style="line-height:1.5">${esc(ch.appearance.slice(0, 80))}${ch.appearance.length > 80 ? '…' : ''}</div>`
       : (ch.in_library ? '' : `<div class="text-xs" style="color:var(--rose)">⚠ 角色库中暂无此角色</div>`);
@@ -2498,7 +2501,7 @@ async function renderEntityGraph(c) {
           <div style="font-weight:600">${esc(ch.name)} ${ch.locked ? '<span title="一致性锁已开启">🔒</span>' : ''}</div>
           <span class="badge badge--${ch.role==='主角'?'purple':ch.role==='反派'?'rose':'blue'}">${esc(ch.role || '—')}</span>
         </div>
-        <div class="text-xs text-muted mb-1">出现 <b>${ch.shot_count}</b> 个分镜 · ${ch.in_library ? '已在角色库' : '未在角色库'}</div>
+        <div class="text-xs text-muted mb-1">出现 <b>${ch.shot_count}</b> 个分镜 · ${ch.in_library ? '已在角色库' : '未在角色库'} ${tvBadge}</div>
         ${appr}
         <div class="flex gap-2 mt-2">
           <button class="btn btn--sm btn--amber" data-viewshots="${ch.name}">🎞 查看镜头</button>
@@ -2507,19 +2510,55 @@ async function renderEntityGraph(c) {
       </div>`;
   }).join('');
 
-  const locCards = data.locations.map(l => `
-    <div class="card fade-up">
-      <div style="font-weight:600">📍 ${esc(l.name)}</div>
-      <div class="text-xs text-muted mb-2">出现 <b>${l.shot_count}</b> 个分镜</div>
-      <button class="btn btn--sm btn--amber" data-viewloc="${esc(l.name)}">🎞 查看镜头</button>
-    </div>`).join('');
+  const locCards = data.locations.map(l => {
+    const faBadge = l.in_library
+      ? `<span class="badge ${l.four_angle_status === 'done' ? 'badge--green' : 'badge--blue'}">${l.four_angle_status === 'done' ? '🎨 四角度已生成' : '🎨 四角度待生成'}</span>`
+      : `<span class="badge badge--blue">未建档</span>`;
+    return `
+      <div class="card fade-up">
+        <div style="font-weight:600">📍 ${esc(l.name)}</div>
+        <div class="text-xs text-muted mb-1">出现 <b>${l.shot_count}</b> 个分镜</div>
+        <div class="mb-2">${faBadge}</div>
+        <button class="btn btn--sm btn--amber" data-viewloc="${esc(l.name)}">🎞 查看镜头</button>
+      </div>`;
+  }).join('');
 
   body.innerHTML = `
+    <div class="flex gap-2 mb-3 flex-wrap">
+      <button class="btn btn--sm btn--green" id="btnImportEntities">📥 一键建档进库</button>
+      <button class="btn btn--sm btn--purple" id="btnGenThreeView">🎨 生成三视图</button>
+      <button class="btn btn--sm btn--purple" id="btnGenFourAngle">🎨 生成四角度</button>
+      <button class="btn btn--sm btn--amber" id="btnApplyAngles">🔗 应用角度到提示词</button>
+    </div>
     <div class="section-header"><div class="section-title">👥 角色（${data.characters.length}）· 已锁 ${data.locked_count}</div></div>
     <div class="card-grid mb-4" id="charGrid2">${charCards || '<div class="text-sm text-muted">剧本中暂未识别到角色</div>'}</div>
     <div class="section-header"><div class="section-title">📍 场景地点（${data.locations.length}）</div></div>
     <div class="card-grid" id="locGrid">${locCards || '<div class="text-sm text-muted">剧本中暂未识别到场景地点</div>'}</div>
   `;
+
+  const pid = S.novelProject.id;
+  document.getElementById('btnImportEntities').onclick = async () => {
+    if (!confirm('将把剧本中出现的角色与场景地点批量建档进库（不耗额度）。已存在的不会重复建档。确认？')) return;
+    try { const r = await api(`/entities/${pid}/import`, { method: 'POST', body: {} }); toast(`建档完成：角色 ${r.created_characters.length} / 场景 ${r.created_scenes.length}`); }
+    catch (e) { toast('建档失败：' + e.message); }
+    renderEntityGraph(c);
+  };
+  document.getElementById('btnGenThreeView').onclick = async () => {
+    toast('正在为角色库生成三视图（仅耗 token）…');
+    try { const r = await api(`/entities/${pid}/generate-three-view`, { method: 'POST', body: { force: false } }); toast(`三视图生成：${r.generated.length} 个${r.errors.length ? '，'+r.errors.length+' 个失败' : ''}`); }
+    catch (e) { toast('三视图生成失败：' + e.message); }
+    renderEntityGraph(c);
+  };
+  document.getElementById('btnGenFourAngle').onclick = async () => {
+    toast('正在为场景库生成四角度（仅耗 token）…');
+    try { const r = await api(`/entities/${pid}/generate-four-angle`, { method: 'POST', body: { force: false } }); toast(`四角度生成：${r.generated.length} 个${r.errors.length ? '，'+r.errors.length+' 个失败' : ''}`); }
+    catch (e) { toast('四角度生成失败：' + e.message); }
+    renderEntityGraph(c);
+  };
+  document.getElementById('btnApplyAngles').onclick = async () => {
+    try { const r = await api(`/entities/${pid}/apply-angles`, { method: 'POST', body: {} }); toast(`已把场景锚写入 ${r.applied} 个分镜提示词`); }
+    catch (e) { toast('应用角度失败：' + e.message); }
+  };
 
   body.querySelectorAll('[data-viewshots]').forEach(btn => {
     btn.onclick = () => { S.sbFilterChar = btn.dataset.viewshots; S.sbFilterLoc = null; S.novelStage = 'storyboard'; renderNovelProject(c); };
@@ -2657,9 +2696,15 @@ async function renderScriptDoctor(c) {
       <div class="text-xs text-muted mt-1">横轴为场景顺序，纵轴为每场剧名强度（情绪×动作×冲突）。理想曲线应在中段累积、结尾前冲到高潮后回落。</div>
     </div>
 
+    <div class="section-header mt-4"><div class="section-title">🤖 每章自动体检存档</div></div>
+    <div class="card mb-4" id="doctorAutoReports"><div class="text-sm text-muted">加载中…</div></div>
+
     <div class="section-header"><div class="section-title">🧩 三项体检</div></div>
     <div class="card-grid">${cats}</div>
   `;
+
+  // 加载每章自动体检存档（gen_prompts 后自动写入）
+  loadDoctorAutoReports(S.novelProject.id, 'doctorAutoReports');
 
   // 问题卡片「↗ 去修改」：点击跳到对应阶段
   body.querySelectorAll('.doc-issue[data-jump]').forEach(li => {
@@ -2680,6 +2725,39 @@ async function renderScriptDoctor(c) {
       box.innerHTML = `<div class="text-sm" style="color:var(--rose)">诊断失败：${esc(e.message)}</div>`;
     }
   };
+}
+
+/* 加载「每章自动体检存档」：gen_prompts 后由后端确定性跑 Script Doctor 并写入 script_doctor_reports */
+async function loadDoctorAutoReports(pid, containerId) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  let data;
+  try {
+    data = await api(`/script-doctor/${pid}/reports`);
+  } catch (e) {
+    box.innerHTML = `<div class="text-sm text-muted">自动体检存档读取失败：${esc(e.message)}</div>`;
+    return;
+  }
+  const reps = data.reports || [];
+  if (!reps.length) {
+    box.innerHTML = `<div class="text-sm text-muted">尚无自动体检记录。生成任意一章分镜提示词后，系统会在此自动留存该章的体检结果（零成本、确定性）。</div>`;
+    return;
+  }
+  const cards = reps.map(r => {
+    const ov = r.overall_score || 0;
+    const issues = (r.issues || []).filter(i => (i.severity || '') !== 'ok');
+    const errs = issues.filter(i => i.severity === 'error').length;
+    const warns = issues.filter(i => i.severity === 'warning').length;
+    return `
+      <div class="card fade-up" style="margin-bottom:8px">
+        <div class="flex items-center justify-between">
+          <div style="font-weight:600">📄 ${esc(r.chapter_key || '未命名章节')}</div>
+          <div style="color:${_scoreColor(ov)};font-weight:700">${ov} · ${esc(r.overall_grade || '—')}</div>
+        </div>
+        <div class="text-xs text-muted mt-1">⛔ ${errs} · ⚠ ${warns} · 自动体检于 ${esc(r.created_time || '')}</div>
+      </div>`;
+  }).join('');
+  box.innerHTML = `<div class="text-xs text-muted mb-2">共 ${reps.length} 章已自动体检（每次生成分镜提示词后刷新）。点左侧「🩺 剧本诊断」查看当前全量明细。</div>${cards}`;
 }
 
 function _catLabel(k) { return ({ structure: '结构', character: '人物压力', pacing: '节奏' })[k] || k; }

@@ -37,12 +37,11 @@ with app.app_context():
         r = import_entities(PID)
     imp = r.get_json()
     print("\n[1] 建档进库:", json.dumps(imp, ensure_ascii=False)[:300])
-    check(len(imp.get("created_characters", [])) > 0, "建档产生角色记录")
-    check(len(imp.get("created_scenes", [])) > 0, "建档产生场景记录")
-
+    # 去重：已建档的会进入 skipped；只要库最终非空即说明建档链路可用
     chars = NovelCharacter.query.filter_by(project_id=PID).all()
     scenes = SceneLibrary.query.filter_by(project_id=PID).all()
-    print(f"    角色库现有 {len(chars)} 条，场景库现有 {len(scenes)} 条")
+    check(len(chars) > 0, f"角色库建档非空（现有 {len(chars)} 条；本次新建 {len(imp.get('created_characters', []))} / 跳过 {len(imp.get('skipped_characters', []))}）")
+    check(len(scenes) > 0, f"场景库建档非空（现有 {len(scenes)} 条；本次新建 {len(imp.get('created_scenes', []))} / 跳过 {len(imp.get('skipped_scenes', []))}）")
 
     # 2) 三视图 / 四角度 mock 生成
     from web.routes.entities import generate_three_view, generate_four_angle

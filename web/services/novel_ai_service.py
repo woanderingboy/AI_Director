@@ -1,6 +1,7 @@
 """小说创作 AI 服务 - 各阶段独立配置"""
 import json
 import os
+import re
 from web.services.llm_client import LLMClient
 
 
@@ -182,7 +183,7 @@ def _parse_view_json(raw, keys):
         m = re.search(rf'["\']?{k}["\']?\s*[:：]\s*["\'](.*?)["\']', text, re.S)
         out[k] = m.group(1).strip() if m else ""
     if not any(out.values()):
-        # 再退化：整段作为 front
+        # 再退化：整段作为首个 key（四角度/三视图整体回填到 front，避免空值）
         out[keys[0]] = text.strip()
     return out
 
