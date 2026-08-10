@@ -391,6 +391,97 @@ def phase8_scan_idempotent(pid, name):
     check("P8 重复 scan 不重复建章节", after == before, f"before={before} after={after}")
 
 
+def phase9_globals_merge(pid, name, chs0_id):
+    """专项：项目统一正面 / 负面提示词 —— 用户能否独立修改，并重跑时顺利并入最终提示词。"""
+    emit("── P9 项目统一正面/负面提示词：独立修改 + 并入最终提示词 ──")
+    # 先清空上一阶段(phase5)遗留的锁，确保本阶段全量重跑不被跳过
+    try:
+        with app.app_context():
+            AssetVersion.query.filter_by(
+                project_id=pid, asset_type="storyboard_prompt", is_final=True
+            ).update({"is_final": False})
+            db.session.commit()
+    except Exception:
+        pass
+    for fp in prompt_files(name):
+        d = read_prompt(fp)
+        if d.get("_locked"):
+            d["_locked"] = False
+            write_prompt(fp, d)
+
+    POS = "全局统一正面XYZ：电影级质感,8k,精细"
+    NEG = "全局统一负面XYZ：模糊,变形,水印"
+
+    # 9.1 独立设置正面 / 负面
+    r = client.put(f"/api/projects/{pid}/globals",
+                   json={"positive_prompts": POS, "negative_prompts": NEG})
+    check("P9 单独设置统一正面/负面 200", r.status_code == 200, str(r.status_code))
+    # 9.2 回环：GET 取回值一致（正向/负向各自独立保留）
+    g = client.get(f"/api/projects/{pid}/globals").get_json()
+    check("P9 正面提示词独立保存", g.get("positive_prompts") == POS, g.get("positive_prompts"))
+    check("P9 负面提示词独立保存", g.get("negative_prompts") == NEG, g.get("negative_prompts"))
+
+    # 9.3 只改负面、不动正面 → 验证不会互相清空（独立修改）
+    r = client.put(f"/api/projects/{pid}/globals",
+                   json={"positive_prompts": POS, "negative_prompts": NEG + "附加"})
+    g = client.get(f"/api/projects/{pid}/globals").get_json()
+    check("P9 改负面不覆盖正面（独立）", g.get("positive_prompts") == POS, g.get("positive_prompts"))
+    check("P9 负面更新生效", g.get("negative_prompts") == NEG + "附加", g.get("negative_prompts"))
+
+    # 9.4 重跑 gen_prompts → 并入最终提示词字段
+    svc = PipelineService(ROOT_PATH)
+    with app.app_context():
+        sc = ScriptModel.query.filter_by(novel_chapter_id=chs0_id).order_by(ScriptModel.id.desc()).first()
+        sc_id = sc.id
+        svc.gen_prompts(project_name=name, chapter_id=chs0_id, script_id=sc_id, project_id=pid)
+    pfs = prompt_files(name)
+    check("P9 重跑后有提示词文件", len(pfs) > 0, f"files={len(pfs)}")
+    all_in_pos = all(POS in (read_prompt(fp).get("video_prompt") or "") for fp in pfs)
+    all_in_neg = all((NEG + "附加") in (read_prompt(fp).get("negative_prompt") or "") for fp in pfs)
+    check("P9 统一正面并入每镜 video_prompt", all_in_pos, f"{len(pfs)} files")
+    check("P9 统一负面并入每镜 negative_prompt", all_in_neg, f"{len(pfs)} files")
+
+    # 9.4b 交付格式（build_full_prompt）也包含【项目设定】段与正面
+    from web.services.prompt_assembly import build_full_prompt, get_project_globals
+    with app.app_context():
+        gproj = get_project_globals(pid)
+    full = build_full_prompt(read_prompt(pfs[0]), gproj)
+    check("P9 交付格式含【项目设定】段", "【项目设定】" in full, "")
+    check("P9 交付格式【项目设定】含正面(渲染与质感)", ("渲染与质感" in full) and (POS in full), "")
+
+    # 9.5 幂等重跑：正面/负面各只出现一次，不累积
+    with app.app_context():
+        svc.gen_prompts(project_name=name, chapter_id=chs0_id, script_id=sc_id, project_id=pid)
+    pfs = prompt_files(name)
+    counts_pos = [(read_prompt(fp).get("video_prompt") or "").count(POS) for fp in pfs]
+    counts_neg = [(read_prompt(fp).get("negative_prompt") or "").count(NEG + "附加") for fp in pfs]
+    check("P9 重跑后正面不累积(每镜=1)", all(c == 1 for c in counts_pos), f"counts={counts_pos}")
+    check("P9 重跑后负面不累积(每镜=1)", all(c == 1 for c in counts_neg), f"counts={counts_neg}")
+
+    # 9.6 改全局正面文本 → 重跑 → 新文本出现、旧文本消失（全局驱动，非冻结）
+    POS2 = "全局统一正面ABC：新风格"
+    client.put(f"/api/projects/{pid}/globals",
+               json={"positive_prompts": POS2, "negative_prompts": NEG + "附加"})
+    with app.app_context():
+        svc.gen_prompts(project_name=name, chapter_id=chs0_id, script_id=sc_id, project_id=pid)
+    pfs = prompt_files(name)
+    ok_new = all(POS2 in (read_prompt(fp).get("video_prompt") or "") for fp in pfs)
+    no_old = all(POS not in (read_prompt(fp).get("video_prompt") or "") for fp in pfs)
+    check("P9 改全局正面后新文本并入", ok_new, f"{len(pfs)} files")
+    check("P9 改全局正面后旧文本被替换(未残留)", no_old, f"{len(pfs)} files")
+
+    # 9.7 清空全局 → 重跑 → 提示词中不再含残留全局文本（干净移除）
+    client.put(f"/api/projects/{pid}/globals",
+               json={"positive_prompts": "", "negative_prompts": ""})
+    with app.app_context():
+        svc.gen_prompts(project_name=name, chapter_id=chs0_id, script_id=sc_id, project_id=pid)
+    pfs = prompt_files(name)
+    clean_pos = all(POS2 not in (read_prompt(fp).get("video_prompt") or "") for fp in pfs)
+    clean_neg = all((NEG + "附加") not in (read_prompt(fp).get("negative_prompt") or "") for fp in pfs)
+    check("P9 清空全局后正面不再残留", clean_pos, f"{len(pfs)} files")
+    check("P9 清空全局后负面不再残留", clean_neg, f"{len(pfs)} files")
+
+
 def main():
     orphan_av_cleanup()  # 先清掉上一轮遗留的孤儿 AssetVersion（最终版标记泄漏）
     name = unique_name("联动_本地修改")
@@ -407,6 +498,7 @@ def main():
             phase3_scene_and_delete(pid, name, chs)
             phase4_rerun(pid, name, chs0_id)
             phase5_default_modify_preset_reset(pid, name, chs0_id)
+            phase9_globals_merge(pid, name, chs0_id)
         phase6_consistency_lock(pid, name)
         phase8_scan_idempotent(pid, name)  # 删项目前做
         phase7_boundaries(pid, name)        # 内部包含删除项目 + 越界
@@ -414,6 +506,7 @@ def main():
         import traceback
         emit(f"EXCEPTION: {repr(e)}")
         emit(traceback.format_exc())
+        FAIL.append(f"阶段异常未捕获: {repr(e)}")
     finally:
         if pid:
             cleanup(pid, name)
