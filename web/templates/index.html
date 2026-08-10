@@ -331,6 +331,16 @@ a{color:var(--purple);text-decoration:none}
 .doc-issue__txt{color:var(--t2)}
 .doc-issue__fix{display:block;margin-top:3px;color:var(--t3);font-size:.76rem}
 
+/* ── 新建项目：双路径选择 ── */
+.np-paths{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.np-path{text-align:left;padding:12px 14px;border:1px solid var(--border);background:var(--bg3);border-radius:var(--r2);cursor:pointer;transition:all .15s;font:inherit;color:inherit}
+.np-path:hover{border-color:var(--purple)}
+.np-path.active{border-color:var(--purple);background:var(--purple-dim)}
+.np-path__icon{font-size:1.4rem;line-height:1}
+.np-path__title{font-weight:700;font-size:.95rem;margin:4px 0 2px}
+.np-path__desc{font-size:.76rem;color:var(--t2);line-height:1.5}
+.np-path.active .np-path__desc{color:var(--t1)}
+
 </style>
 </head>
 <body>
@@ -3837,17 +3847,95 @@ function showImportInkosModal() {
 }
 
 function showNewProjectModal() {
+  let mode = 'scratch';
   showModal('新建项目', `
-    <div class="form-group"><label>项目名称</label><input type="text" id="npName" placeholder="例：千渡念莞"></div>
-    <div class="form-group"><label>类型标签</label><input type="text" id="npGenre" placeholder="例：暗黑幻想"></div>
-    <div class="form-group"><label>项目简介</label><textarea id="npDesc" placeholder="简单描述项目..."></textarea></div>
+    <div class="np-paths">
+      <button type="button" class="np-path active" data-mode="scratch">
+        <div class="np-path__icon">🚀</div>
+        <div class="np-path__title">从零开始</div>
+        <div class="np-path__desc">给 AI 一点灵感，它先帮你生成一版世界观 / 人物 / 大纲草稿，你再一步步打磨。</div>
+      </button>
+      <button type="button" class="np-path" data-mode="import">
+        <div class="np-path__icon">📥</div>
+        <div class="np-path__title">导入已有大纲</div>
+        <div class="np-path__desc">你已有完整的世界观 / 大纲 / 概要，粘进来，AI 把它拆进框架里。</div>
+      </button>
+    </div>
+    <div class="form-group mt-3"><label>项目名称 *</label><input type="text" id="npName" placeholder="例：末日快递王"></div>
+    <div id="npSeedBox">
+      <div class="form-group" id="npInspirationBox">
+        <label>一句话灵感 <span class="text-muted">(可选，但推荐)</span></label>
+        <textarea id="npInspiration" style="min-height:90px" placeholder="例：一个外卖员穿越到末世，绑定了一个快递系统，每送一单都是生死局…"></textarea>
+      </div>
+      <div class="form-group" id="npSourceBox" style="display:none">
+        <label>粘贴世界观 / 大纲 / 概要 *</label>
+        <textarea id="npSource" style="min-height:150px" placeholder="把已有的设定文字粘到这里，AI 会拆成世界观 / 角色 / 大纲填进框架…"></textarea>
+      </div>
+    </div>
+    <details class="mt-2"><summary class="text-sm text-muted">更多（可选）</summary>
+      <div class="form-group mt-2"><label>类型标签</label><input type="text" id="npGenre" placeholder="例：暗黑幻想"></div>
+      <div class="form-group"><label>项目简介</label><textarea id="npDesc" placeholder="简单描述项目..."></textarea></div>
+    </details>
+    <div id="npHint" class="text-xs text-muted mt-2"></div>
   `, async () => {
+    const btn = document.getElementById('modalConfirm');
     const name = document.getElementById('npName').value.trim();
     if (!name) { toast('请输入项目名称'); return; }
-    await api('/projects', { method: 'POST', body: { name, genre: document.getElementById('npGenre').value, description: document.getElementById('npDesc').value } });
-    toast(`项目「${name}」已创建`);
-    loadProjects();
+    let inspiration = '', source_text = '';
+    if (mode === 'import') {
+      source_text = document.getElementById('npSource').value.trim();
+      if (!source_text) { toast('请粘贴已有的世界观 / 大纲 / 概要'); return; }
+    } else {
+      inspiration = document.getElementById('npInspiration').value.trim();
+    }
+    btn.disabled = true;
+    btn.textContent = mode === 'import' ? '⏳ 解析中…' : '⏳ 生成中…';
+    const body = { name, mode, inspiration, source_text };
+    const g = document.getElementById('npGenre').value.trim();
+    const d = document.getElementById('npDesc').value.trim();
+    if (g) body.genre = g;
+    if (d) body.description = d;
+    try {
+      const r = await api('/projects', { method: 'POST', body });
+      if (r.settings_building) {
+        toast('项目已创建，AI 正在后台生成初始设定，稍后进入创作工作台即可看到');
+      } else {
+        toast(`项目「${name}」已创建` + (r.settings_built ? '，并已生成初始设定' : ''));
+      }
+      if (r.settings_note) console.log('[new-project]', r.settings_note);
+      loadProjects();
+      if (r.settings_built && r.id) {
+        await openProject(r.id);   // 同步已完成时直接进创作工作台
+      }
+    } catch (e) {
+      toast('创建失败：' + (e.message || e));
+      btn.disabled = false;
+      btn.textContent = '确定';
+    }
   });
+
+  // 路径切换
+  const modal = document.getElementById('modal');
+  const applyPathStyle = (b, active) => {
+    b.style.borderColor = active ? 'var(--purple)' : 'var(--border)';
+    b.style.background = active ? 'var(--purple-dim)' : 'var(--bg3)';
+  };
+  modal.querySelectorAll('.np-path').forEach(b => {
+    applyPathStyle(b, b.classList.contains('active'));
+    b.onclick = () => {
+      modal.querySelectorAll('.np-path').forEach(x => { x.classList.remove('active'); applyPathStyle(x, false); });
+      b.classList.add('active');
+      applyPathStyle(b, true);
+      mode = b.dataset.mode;
+      const isImport = mode === 'import';
+      document.getElementById('npInspirationBox').style.display = isImport ? 'none' : '';
+      document.getElementById('npSourceBox').style.display = isImport ? '' : 'none';
+      document.getElementById('npHint').textContent = isImport
+        ? '已有设定就粘进来，AI 会解析成世界观 / 角色 / 大纲。'
+        : '灵感越具体，第一版草稿越贴合你的想法；留空则只建空项目。';
+    };
+  });
+  document.getElementById('npHint').textContent = '灵感越具体，第一版草稿越贴合你的想法；留空则只建空项目。';
 }
 
 function showAddChapterModal() {
