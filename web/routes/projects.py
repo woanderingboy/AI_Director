@@ -69,6 +69,29 @@ def delete_project(project_id):
     return jsonify({"ok": True})
 
 
+@bp.route("/batch-delete", methods=["POST"])
+def batch_delete_projects():
+    """批量删除项目（仅删除数据库记录，保留 02_Projects 下的项目文件）。
+
+    body: {"ids": [1, 2, 3]}   id 不存在的会被忽略。
+    """
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids") or []
+    if not isinstance(ids, list) or not ids:
+        return jsonify({"ok": False, "error": "缺少 ids 列表"}), 400
+    ids = [int(x) for x in ids if str(x).isdigit()]
+    if not ids:
+        return jsonify({"ok": False, "error": "ids 为空或格式非法"}), 400
+    deleted = 0
+    for pid in ids:
+        project = ProjectModel.query.get(pid)
+        if project:
+            db.session.delete(project)
+            deleted += 1
+    db.session.commit()
+    return jsonify({"ok": True, "deleted": deleted, "requested": len(ids)})
+
+
 @bp.route("/<int:project_id>/freshness", methods=["GET"])
 def project_freshness(project_id):
     """下游产物新鲜度：基于项目 novel_version 与各阶段产物目录的 .novel_version 标记判断。

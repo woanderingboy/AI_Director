@@ -514,11 +514,50 @@ function renderDashboard(c) {
 /* ═══════════ PROJECTS LIST ═══════════ */
 function renderProjects(c) {
   c.innerHTML = `
-    <div class="section-header"><div class="section-title">📁 全部项目</div><button class="btn btn--primary btn--sm" id="btnNew2">＋ 新建</button></div>
+    <div class="section-header">
+      <div class="section-title">📁 全部项目</div>
+      <div class="flex gap-2 items-center">
+        <span id="selCount" class="text-sm text-muted"></span>
+        <button class="btn btn--sm" id="btnSelAll">全选</button>
+        <button class="btn btn--sm btn--rose" id="btnBatchDel" disabled>批量删除</button>
+        <button class="btn btn--primary btn--sm" id="btnNew2">＋ 新建</button>
+      </div>
+    </div>
     <div class="card-grid" id="projectGrid"></div>
   `;
   c.querySelector('#btnNew2').onclick = () => showNewProjectModal();
+  c.querySelector('#btnSelAll').onclick = () => {
+    const boxes = document.querySelectorAll('#projectGrid input[data-check]');
+    const allOn = Array.from(boxes).every(b => b.checked);
+    boxes.forEach(b => { b.checked = !allOn; });
+    updateSelCount();
+  };
+  c.querySelector('#btnBatchDel').onclick = async () => {
+    const ids = selectedProjectIds();
+    if (!ids.length) return;
+    if (!confirm(`确定批量删除选中的 ${ids.length} 个项目？此操作不可恢复（仅删除数据库记录，保留项目文件）。`)) return;
+    try {
+      const r = await api('/projects/batch-delete', { method: 'POST', body: { ids } });
+      toast(`已删除 ${r.deleted} 个项目`);
+      loadProjects();
+    } catch (e) {
+      toast('批量删除失败：' + (e.message || e));
+    }
+  };
   renderProjectCards(document.getElementById('projectGrid'));
+}
+
+function selectedProjectIds() {
+  return Array.from(document.querySelectorAll('#projectGrid input[data-check]:checked'))
+    .map(b => parseInt(b.dataset.check));
+}
+
+function updateSelCount() {
+  const n = selectedProjectIds().length;
+  const el = document.getElementById('selCount');
+  const btn = document.getElementById('btnBatchDel');
+  if (el) el.textContent = n ? `已选 ${n} 个` : '';
+  if (btn) btn.disabled = n === 0;
 }
 
 function renderProjectCards(container) {
@@ -530,7 +569,9 @@ function renderProjectCards(container) {
   container.innerHTML = S.projects.map(p => `
     <div class="card fade-up" data-id="${p.id}" style="cursor:pointer">
       <div class="flex items-center justify-between mb-2">
-        <div style="font-weight:600;font-size:.92rem">${esc(p.name)}</div>
+        <label class="flex items-center gap-2" style="font-weight:600;font-size:.92rem;cursor:pointer" onclick="event.stopPropagation()">
+          <input type="checkbox" data-check="${p.id}"> ${esc(p.name)}
+        </label>
         <span class="badge badge--blue">${p.chapter_count || 0} 章</span>
       </div>
       <div class="text-sm text-muted mb-2">${esc(p.description || '暂无描述')}</div>
@@ -544,6 +585,9 @@ function renderProjectCards(container) {
   `).join('');
   container.querySelectorAll('.card').forEach(el => {
     el.onclick = () => openProject(parseInt(el.dataset.id));
+  });
+  container.querySelectorAll('#projectGrid input[data-check]').forEach(box => {
+    box.onchange = () => updateSelCount();
   });
   container.querySelectorAll('button[data-del]').forEach(btn => {
     btn.onclick = async (e) => {
