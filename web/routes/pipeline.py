@@ -10,12 +10,18 @@ bp = Blueprint("pipeline", __name__)
 
 @bp.route("/run", methods=["POST"])
 def run_pipeline():
-    """提交流水线任务"""
-    data = request.get_json()
+    """提交流水线任务（支持临时覆盖提示词/模型/温度等）"""
+    data = request.get_json() or {}
     stage = data.get("stage", "run_all")
     project_name = data.get("project_name")
     chapter_id = data.get("chapter_id")
     script_id = data.get("script_id")
+
+    # 临时覆盖项：仅当用户在生成界面显式填写时才透传，否则沿用项目/全局配置
+    override_fields = {}
+    for f in ("custom_prompt", "provider_key", "model", "temperature", "max_tokens"):
+        if f in data and data[f] is not None and data[f] != "":
+            override_fields[f] = data[f]
 
     task_manager = current_app.task_manager
     task_id = task_manager.submit(
@@ -25,6 +31,7 @@ def run_pipeline():
         chapter_id=chapter_id,
         project_name=project_name,
         script_id=script_id,
+        **override_fields,
     )
     return jsonify({"task_id": task_id, "status": "submitted"})
 

@@ -377,6 +377,8 @@ const S = {
   novelChapters: [],
   novelCurrentChapter: null,
   novelScenes: [],
+  selectMode: false,  // 项目管理「选择模式」：开启后卡片仅用于勾选/批量删除，点击不再进项目
+  promptTemplates: null,  // 各阶段默认提示词模板缓存（/prompt-templates）
 };
 
 // 字幕模块前端状态
@@ -402,6 +404,8 @@ function h(tag, attrs, ...children) {
 }
 
 function render() {
+  // 离开项目管理页时自动退出选择模式（用户口述：退回/切走即恢复普通浏览）
+  if (S.view !== 'projects') S.selectMode = false;
   const app = document.getElementById('app');
   app.innerHTML = '';
   app.appendChild(renderSidebar());
@@ -418,7 +422,7 @@ function renderSidebar() {
     </div>
     <div class="nav-group">
       <div class="nav-group__label">创作流程</div>
-      <div class="nav-item ${S.view==='novel'?'active':''}" data-view="novel"><span class="nav-item__icon">✍</span> 小说创作</div>
+      <div class="nav-item ${S.view==='novel'?'active':''}" data-view="novel"><span class="nav-item__icon">✍</span> 我的创作</div>
       <div class="nav-item ${S.view==='projects'?'active':''}" data-view="projects"><span class="nav-item__icon">📁</span> 项目管理</div>
       <div class="nav-item ${S.view==='asset-packages'?'active':''}" data-view="asset-packages"><span class="nav-item__icon">📦</span> 素材打包</div>
       <div class="nav-group__label" style="margin-top:16px">系统设置</div>
@@ -468,7 +472,7 @@ function renderTopBar() {
   const titles = {
     'dashboard': '控制台', 'projects': '项目管理', 'project-detail': S.currentProject?.name || '项目',
     'global-assets': '全局资产', 'providers': '大模型配置', 'tasks': '任务中心', 'prompt-library': 'Prompt词库',
-    'novel': '小说创作', 'novel-project': S.novelProject?.name || '小说创作',
+    'novel': '我的创作', 'novel-project': S.novelProject?.name || '小说创作',
     'asset-packages': '素材打包',
     'settings': '系统设置',
     'help': '使用帮助',
@@ -488,9 +492,9 @@ function renderTopBar() {
   const btnNew = bar.querySelector('#btnNewProject');
   if (btnNew) btnNew.onclick = () => showNewProjectModal();
   const btnBack = bar.querySelector('#btnBack');
-  if (btnBack) btnBack.onclick = () => { S.view = 'novel'; S.currentProject = null; render(); };
+  if (btnBack) btnBack.onclick = () => { S.view = 'projects'; S.currentProject = null; render(); loadProjects(); };
   const btnBackNovel = bar.querySelector('#btnBackNovel');
-  if (btnBackNovel) btnBackNovel.onclick = () => { S.view = 'novel'; S.novelProject = null; render(); };
+  if (btnBackNovel) btnBackNovel.onclick = () => { S.view = 'projects'; S.novelProject = null; S.currentProject = null; render(); loadProjects(); };
   const btnImportInkos = bar.querySelector('#btnImportInkos');
   if (btnImportInkos) btnImportInkos.onclick = () => showImportInkosModal();
   return bar;
@@ -518,33 +522,55 @@ function renderProjects(c) {
       <div class="section-title">📁 全部项目</div>
       <div class="flex gap-2 items-center">
         <span id="selCount" class="text-sm text-muted"></span>
-        <button class="btn btn--sm" id="btnSelAll">全选</button>
-        <button class="btn btn--sm btn--rose" id="btnBatchDel" disabled>批量删除</button>
+        ${S.selectMode
+          ? '<button class="btn btn--sm btn--rose" id="btnBatchDel">✅ 批量删除</button><button class="btn btn--sm" id="btnExitSelect">退出选择</button>'
+          : '<button class="btn btn--sm btn--rose" id="btnBatchDel">批量删除</button>'}
+        ${S.selectMode ? '<button class="btn btn--sm" id="btnSelAll">全选</button>' : ''}
         <button class="btn btn--primary btn--sm" id="btnNew2">＋ 新建</button>
       </div>
     </div>
+    ${S.selectMode ? '<div class="text-xs text-muted mb-3">选择模式：点项目卡片即选中（高亮），再点取消；不会进入项目。确认后点「批量删除」。点「退出选择」或切走页面即恢复普通浏览。</div>' : ''}
     <div class="card-grid" id="projectGrid"></div>
   `;
   c.querySelector('#btnNew2').onclick = () => showNewProjectModal();
-  c.querySelector('#btnSelAll').onclick = () => {
-    const boxes = document.querySelectorAll('#projectGrid input[data-check]');
-    const allOn = Array.from(boxes).every(b => b.checked);
-    boxes.forEach(b => { b.checked = !allOn; });
-    updateSelCount();
-  };
-  c.querySelector('#btnBatchDel').onclick = async () => {
-    const ids = selectedProjectIds();
-    if (!ids.length) return;
-    if (!confirm(`确定批量删除选中的 ${ids.length} 个项目？此操作不可恢复（仅删除数据库记录，保留项目文件）。`)) return;
-    try {
-      const r = await api('/projects/batch-delete', { method: 'POST', body: { ids } });
-      toast(`已删除 ${r.deleted} 个项目`);
-      loadProjects();
-    } catch (e) {
-      toast('批量删除失败：' + (e.message || e));
-    }
-  };
+  // 「批量删除」= 进入选择模式（默认不进项目）；「退出选择」= 退出
+  const btnEnter = c.querySelector('#btnBatchDel');
+  if (btnEnter) btnEnter.onclick = () => { S.selectMode = true; render(); };
+  const btnExit = c.querySelector('#btnExitSelect');
+  if (btnExit) btnExit.onclick = () => { S.selectMode = false; clearSelection(); render(); };
+  // 选择模式下：未勾选任何项目时禁用「批量删除」执行按钮，避免误点空删
+  if (S.selectMode) {
+    const execBtn = c.querySelector('#btnBatchDel');
+    if (execBtn) execBtn.disabled = selectedProjectIds().length === 0;
+  }
+  if (S.selectMode) {
+    const btnSelAll = c.querySelector('#btnSelAll');
+    if (btnSelAll) btnSelAll.onclick = () => {
+      const boxes = document.querySelectorAll('#projectGrid input[data-check]');
+      const allOn = Array.from(boxes).every(b => b.checked);
+      boxes.forEach(b => { b.checked = !allOn; });
+      updateSelCount();
+    };
+    c.querySelector('#btnBatchDel') && (c.querySelector('#btnBatchDel').onclick = async () => {
+      const ids = selectedProjectIds();
+      if (!ids.length) return;
+      if (!confirm(`确定批量删除选中的 ${ids.length} 个项目？此操作不可恢复（仅删除数据库记录，保留项目文件）。`)) return;
+      try {
+        const r = await api('/projects/batch-delete', { method: 'POST', body: { ids } });
+        toast(`已删除 ${r.deleted} 个项目`);
+        S.selectMode = false;
+        loadProjects();
+      } catch (e) {
+        toast('批量删除失败：' + (e.message || e));
+      }
+    });
+  }
   renderProjectCards(document.getElementById('projectGrid'));
+}
+
+function clearSelection() {
+  document.querySelectorAll('#projectGrid input[data-check]').forEach(b => { b.checked = false; });
+  updateSelCount();
 }
 
 function selectedProjectIds() {
@@ -557,7 +583,7 @@ function updateSelCount() {
   const el = document.getElementById('selCount');
   const btn = document.getElementById('btnBatchDel');
   if (el) el.textContent = n ? `已选 ${n} 个` : '';
-  if (btn) btn.disabled = n === 0;
+  if (btn && S.selectMode) btn.disabled = n === 0;
 }
 
 function renderProjectCards(container) {
@@ -584,10 +610,22 @@ function renderProjectCards(container) {
     </div>
   `).join('');
   container.querySelectorAll('.card').forEach(el => {
-    el.onclick = () => openProject(parseInt(el.dataset.id));
+    const id = parseInt(el.dataset.id);
+    if (!S.selectMode) {
+      // 普通模式：点卡片进项目
+      el.onclick = () => openProject(id);
+    } else {
+      // 选择模式：点卡片 = 选中/取消（高亮），绝不进项目
+      el.onclick = () => toggleSelectCard(el);
+    }
   });
   container.querySelectorAll('#projectGrid input[data-check]').forEach(box => {
-    box.onchange = () => updateSelCount();
+    box.onchange = () => {
+      // 勾选框与卡片高亮同步
+      const card = box.closest('.card');
+      if (card) card.style.outline = box.checked ? '2px solid var(--rose)' : '';
+      updateSelCount();
+    };
   });
   container.querySelectorAll('button[data-del]').forEach(btn => {
     btn.onclick = async (e) => {
@@ -601,6 +639,15 @@ function renderProjectCards(container) {
       }
     };
   });
+}
+
+// 选择模式下点卡片：切换选中态（勾选框 + 高亮），再点取消
+function toggleSelectCard(el) {
+  const box = el.querySelector('input[data-check]');
+  if (!box) return;
+  box.checked = !box.checked;
+  el.style.outline = box.checked ? '2px solid var(--rose)' : '';
+  updateSelCount();
 }
 
 /* ═══════════ PROJECT DETAIL ═══════════ */
@@ -658,9 +705,23 @@ function renderChaptersTab(c) {
       const action = btn.dataset.action;
       const id = parseInt(btn.dataset.id);
       if (action === 'novel2script') {
-        await runPipeline('pipeline.novel2script', { chapter_id: id });
+        showRunModal({
+          stage: 'pipeline.novel2script',
+          stageLabel: '小说 → 剧本',
+          projectName: S.novelProject.name,
+          projectId: S.novelProject.id,
+          chapterId: id,
+          onDone: () => { loadChapters(S.novelProject.id); },
+        });
       } else if (action === 'run-all') {
-        await runPipeline('pipeline.run_all', { chapter_id: id });
+        showRunModal({
+          stage: 'pipeline.run_all',
+          stageLabel: '章节全流程（小说→剧本→分镜→出图）',
+          projectName: S.novelProject.name,
+          projectId: S.novelProject.id,
+          chapterId: id,
+          onDone: () => { loadChapters(S.novelProject.id); },
+        });
       } else if (action === 'delete-chapter') {
         if (confirm('确定删除此章节？')) {
           await api(`/chapters/${id}`, { method: 'DELETE' });
@@ -673,12 +734,95 @@ function renderChaptersTab(c) {
 }
 
 function renderScriptsTab(c) {
-  if (!S.chapters.length) {
-    c.innerHTML = '<div class="empty"><div class="empty__icon">📝</div><div class="empty__title">暂无剧本</div><div class="empty__desc">先在「小说章节」中添加内容，然后运行「小说→剧本」流水线</div></div>';
+  c.innerHTML = `
+    <div class="text-sm text-muted mb-3">剧本存储在 05_Script/ 目录。点击剧本卡片可预览镜头/场景，并可一键进入「下一步：生成分镜 Prompt」。</div>
+    <div class="flex gap-2 mb-3">
+      <button class="btn btn--amber btn--sm" id="btnScanScript2">📥 扫描导入剧本</button>
+      <button class="btn btn--sm" id="btnUploadScript">⬆ 上传外部剧本</button>
+      <input type="file" id="scriptFileInput" accept=".json" multiple style="display:none">
+    </div>
+    <div class="text-xs text-muted mb-3">也支持把剧本 JSON（含 scenes/shots）放进 <code>02_Projects/{项目名}/03_Import/</code>，点「扫描导入剧本」自动建库（按标题联动章节）；或点「上传外部剧本」直接选文件导入。</div>
+    <div id="scriptList"></div>
+  `;
+  const bss = c.querySelector('#btnScanScript2');
+  if (bss) bss.onclick = async () => {
+    if (!S.currentProject) return;
+    toast('正在扫描 03_Import 目录...');
+    try {
+      const r = await api(`/import/${S.currentProject.id}/scan-scripts`, { method: 'POST', body: {} });
+      toast(r.message || '导入完成');
+    } catch (e) { toast('扫描失败：' + (e.message || e)); }
+    loadScriptList();
+  };
+  const upload = c.querySelector('#btnUploadScript');
+  const fileInput = c.querySelector('#scriptFileInput');
+  if (upload) upload.onclick = () => fileInput.click();
+  if (fileInput) fileInput.onchange = async () => {
+    const files = fileInput.files;
+    if (!files || !files.length) return;
+    for (const f of files) {
+      const text = await f.text();
+      try {
+        JSON.parse(text); // 校验 JSON
+      } catch (e) { toast(`「${f.name}」不是合法 JSON，已跳过`); continue; }
+      try {
+        await api(`/import/${S.currentProject.id}/import-script`, {
+          method: 'POST',
+          body: { filename: f.name, content: text },
+        });
+        toast(`已导入：${f.name}`);
+      } catch (e) { toast(`导入失败 ${f.name}：${e.message || e}`); }
+    }
+    fileInput.value = '';
+    loadScriptList();
+  };
+  loadScriptList();
+}
+
+async function loadScriptList() {
+  const container = document.getElementById('scriptList');
+  if (!container || !S.currentProject) return;
+  let scripts = [];
+  try { scripts = await api(`/projects/${S.currentProject.id}/scripts`); } catch (e) { scripts = []; }
+  if (!scripts.length) {
+    container.innerHTML = '<div class="empty"><div class="empty__icon">📝</div><div class="empty__title">暂无剧本</div><div class="empty__desc">先在「小说章节」生成剧本，或从「扫描/上传外部剧本」导入</div></div>';
     return;
   }
-  c.innerHTML = '<div class="text-sm text-muted mb-4">剧本由流水线自动生成，存储在 05_Script/ 目录下</div><div id="scriptFiles"></div>';
-  loadProjectFiles('script');
+  container.innerHTML = `<div class="asset-grid">${scripts.map(s => `
+    <div class="asset-card fade-up" data-id="${s.id}" data-file="${esc(s.filename)}" style="cursor:pointer">
+      <div class="asset-card__image">📝</div>
+      <div class="asset-card__body">
+        <div class="asset-card__name">${esc(s.filename)}</div>
+        <div class="text-xs text-muted mt-1">${s.shot_count} 个镜头 · ${s.created_time || ''}</div>
+        <div class="flex gap-2 mt-2">
+          <button class="btn btn--sm" data-act="view" data-id="${s.id}" data-file="${esc(s.filename)}">👁 预览</button>
+          <button class="btn btn--sm btn--green" data-act="next" data-id="${s.id}" data-file="${esc(s.filename)}">→ 生成分镜</button>
+        </div>
+      </div>
+    </div>
+  `).join('')}</div>`;
+  container.querySelectorAll('.asset-card').forEach(card => {
+    card.onclick = (e) => {
+      if (e.target.closest('button')) return; // 点击按钮时不触发卡片预览
+      viewScriptDetail(card.dataset.file);
+    };
+  });
+  container.querySelectorAll('button[data-act="view"]').forEach(btn => {
+    btn.onclick = (e) => { e.stopPropagation(); viewScriptDetail(btn.dataset.file); };
+  });
+  container.querySelectorAll('button[data-act="next"]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      showRunModal({
+        stage: 'pipeline.gen_prompts',
+        stageLabel: '剧本 → 分镜 Prompt',
+        projectName: S.currentProject.name,
+        projectId: S.currentProject.id,
+        scriptId: parseInt(btn.dataset.id),
+        onDone: () => { loadScriptList(); toast('分镜 Prompt 已生成，可切换到「分镜」标签查看'); },
+      });
+    };
+  });
 }
 
 function renderStoryboardTab(c) {
@@ -1186,43 +1330,11 @@ const NOVEL_STAGES = [
 ];
 
 function renderNovelHome(c) {
-  const groups = [
-    { key: 'novel', label: '第一阶段 · 小说创作', color: 'var(--purple)' },
-    { key: 'script', label: '第二阶段 · 剧本+分镜', color: 'var(--blue)' },
-    { key: 'assets', label: '第三阶段 · 资产管理', color: 'var(--amber)' },
-    { key: 'package', label: '第四阶段 · 打包导出', color: 'var(--green)' },
-    { key: 'video', label: '第五阶段 · 视频成片', color: '#d97757' },
-  ];
   c.innerHTML = `
-    <!-- 快速开始引导 -->
-    <div class="card mb-4" style="border-left:3px solid var(--purple)">
-      <div class="section-title mb-2">🚀 快速开始</div>
-      <div class="text-sm" style="line-height:1.8;color:var(--t2)">
-        <div><strong>第一步：</strong>选择下方项目进入创作（或在「项目管理」中新建项目）</div>
-        <div><strong>第二步：</strong>按顺序完成 世界观 → 人物 → 大纲 → 节点 → 章节</div>
-        <div><strong>第三步：</strong>进入「剧本生成」自动生成结构化剧本</div>
-        <div><strong>第四步：</strong>进入「分镜提示词」生成电影级 Prompt</div>
-        <div><strong>第五步：</strong>在「资产管理」中导入资产图，确认最终版</div>
-        <div><strong>第六步：</strong>「打包导出」→ 丢给豆包生成视频</div>
-      </div>
+    <div class="card mb-4" style="border-left:3px solid var(--purple);padding:16px 18px">
+      <div class="section-title mb-1">✍ 我的创作</div>
+      <div class="text-sm text-muted">选择一个项目进入创作工作台（小说 → 剧本 → 分镜 → 成片）。新建项目请到「📁 项目管理」。</div>
     </div>
-
-    <div class="text-sm text-muted mb-4">按流程推进，每个阶段独立可控。只有你主动进入下一阶段才会执行。</div>
-    ${groups.map(g => `
-      <div class="mb-4">
-        <div class="section-title" style="color:${g.color};font-size:.88rem;margin-bottom:10px">${g.label}</div>
-        <div class="workflow">
-          ${NOVEL_STAGES.filter(s => s.group === g.key).map((s, i, arr) => `
-            <div class="workflow-step fade-up">
-              <div class="workflow-step__icon">${s.icon}</div>
-              <div class="workflow-step__title">${s.title}</div>
-              <div class="workflow-step__desc">${s.desc}</div>
-              ${i < arr.length - 1 ? '<span class="workflow-step__arrow">→</span>' : ''}
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `).join('')}
     <div class="section-header"><div class="section-title">📁 选择项目进入创作</div></div>
     <div class="card-grid" id="novelProjects"></div>
   `;
@@ -1272,6 +1384,7 @@ function renderNovelProject(c) {
       <div style="width:180px;min-width:180px;overflow-y:auto;padding-right:12px;border-right:1px solid var(--border)">
         <div class="text-sm text-muted mb-2">${esc(S.novelProject?.name||'')}</div>
         <button class="btn btn--sm btn--amber" id="btnImportInkos" style="width:100%;margin-bottom:14px;justify-content:center">📥 导入 inkos 书籍</button>
+        <button class="btn btn--sm btn--purple" id="btnDeriveSettings" style="width:100%;margin-bottom:14px;justify-content:center">🤖 根据小说自动补充设定</button>
         ${groups.map(g => `
           <div class="mb-4">
             <div style="font-size:.68rem;font-weight:600;color:${g.color};text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">${g.label}</div>
@@ -1295,6 +1408,9 @@ function renderNovelProject(c) {
   c.querySelectorAll('[data-stage]').forEach(el => {
     el.onclick = () => { S.novelStage = el.dataset.stage; renderNovelProject(c); loadNovelData(); };
   });
+
+  const btnDerive = c.querySelector('#btnDeriveSettings');
+  if (btnDerive) btnDerive.onclick = () => showDeriveSettingsModal(S.novelProject.id);
 
   const nc = document.getElementById('novelContent');
   switch (S.novelStage) {
@@ -2254,8 +2370,10 @@ function renderNovelScript(c) {
     <div class="text-sm text-muted mb-4">将小说章节转换为结构化剧本，自动估算时长并拆分为10-15秒分镜头。${staleBadgeHtml('script', '剧本')}</div>
     <div class="flex gap-2 mb-3">
       <button class="btn btn--amber btn--sm" id="btnScanScript">📥 扫描导入剧本</button>
+      <button class="btn btn--sm" id="btnUploadScriptN">⬆ 上传外部剧本</button>
+      <input type="file" id="scriptFileInputN" accept=".json" multiple style="display:none">
     </div>
-    <div class="text-xs text-muted mb-3">也可把剧本 JSON（含 scenes/shots）放进 <code>02_Projects/{项目名}/03_Import/</code>，点「扫描导入剧本」自动建库（按标题联动章节）。</div>
+    <div class="text-xs text-muted mb-3">也支持把剧本 JSON（含 scenes/shots）放进 <code>02_Projects/{项目名}/03_Import/</code>，点「扫描导入剧本」自动建库（按标题联动章节）；或点「上传外部剧本」直接选文件导入。</div>
     <div id="scriptChapterList"></div>
     <div id="scriptDetail" class="mt-4"></div>
   `;
@@ -2267,6 +2385,23 @@ function renderNovelScript(c) {
       const r = await api(`/import/${S.novelProject.id}/scan-scripts`, { method: 'POST', body: {} });
       toast(r.message || '导入完成');
     } catch (e) { toast('扫描失败：' + (e.message || e)); }
+    loadScriptChapters();
+  };
+  const uploadN = document.getElementById('btnUploadScriptN');
+  const fileInputN = document.getElementById('scriptFileInputN');
+  if (uploadN) uploadN.onclick = () => fileInputN && fileInputN.click();
+  if (fileInputN) fileInputN.onchange = async () => {
+    const files = fileInputN.files;
+    if (!files || !files.length) return;
+    for (const f of files) {
+      const text = await f.text();
+      try { JSON.parse(text); } catch (e) { toast(`「${f.name}」不是合法 JSON，已跳过`); continue; }
+      try {
+        await api(`/import/${S.novelProject.id}/import-script`, { method: 'POST', body: { filename: f.name, content: text } });
+        toast(`已导入：${f.name}`);
+      } catch (e) { toast(`导入失败 ${f.name}：${e.message || e}`); }
+    }
+    fileInputN.value = '';
     loadScriptChapters();
   };
 }
@@ -2302,19 +2437,37 @@ async function loadScriptChapters() {
   }</tbody></table>`;
 
   container.querySelectorAll('button[data-action="gen-script"]').forEach(btn => {
-    btn.onclick = async () => {
-      toast('正在生成剧本...');
-      await api('/pipeline/run', { method: 'POST', body: { stage: 'pipeline.novel2script', project_name: S.novelProject.name, project_id: S.novelProject.id, chapter_id: parseInt(btn.dataset.chid) } });
-      toast('任务已提交，请在任务中心查看进度');
+    btn.onclick = () => {
+      const chId = parseInt(btn.dataset.chid);
+      showRunModal({
+        stage: 'pipeline.novel2script',
+        stageLabel: '小说 → 剧本',
+        projectName: S.novelProject.name,
+        projectId: S.novelProject.id,
+        chapterId: chId,
+        onDone: () => { loadScriptChapters(); },
+        nextLabel: '👁 查看剧本',
+        onNext: () => {
+          const ch = S.novelChapters.find(x => x.id === chId);
+          if (ch) viewScriptByChapterTitle(ch.title);
+        },
+      });
     };
   });
   container.querySelectorAll('button[data-action="view-script"]').forEach(btn => {
     btn.onclick = () => viewScriptDetail(btn.dataset.file);
   });
   container.querySelectorAll('button[data-action="run-all"]').forEach(btn => {
-    btn.onclick = async () => {
-      toast('全流程已启动...');
-      await api('/pipeline/run', { method: 'POST', body: { stage: 'pipeline.run_all', project_name: S.novelProject.name, project_id: S.novelProject.id, chapter_id: parseInt(btn.dataset.chid) } });
+    btn.onclick = () => {
+      const chId = parseInt(btn.dataset.chid);
+      showRunModal({
+        stage: 'pipeline.run_all',
+        stageLabel: '章节全流程（小说→剧本→分镜→出图）',
+        projectName: S.novelProject.name,
+        projectId: S.novelProject.id,
+        chapterId: chId,
+        onDone: () => { loadScriptChapters(); },
+      });
     };
   });
 }
@@ -2391,12 +2544,22 @@ async function viewScriptDetail(filename) {
         `).join('')}</div>` : ''}
       </div>
     `;
-  } catch (e) {
+    } catch (e) {
     container.innerHTML = `<div class="card"><div class="text-sm text-muted">加载失败: ${e.message}</div></div>`;
   }
 }
 
-/* ──── 分镜画布（提示词 ↔ 静帧 联动） ──── */
+async function viewScriptByChapterTitle(title) {
+  // 根据章节标题定位 05_Script 下的剧本文件并预览
+  try {
+    const files = await api(`/assets/${S.novelProject.name}?category=script`);
+    const matched = files.filter(f => f.includes((title || '').substring(0, 4)) && f.toLowerCase().endsWith('.json'));
+    if (matched.length) { viewScriptDetail(matched[0]); }
+    else { toast('未找到该章节对应的剧本文件'); }
+  } catch (e) {
+    toast('定位剧本失败：' + (e.message || e));
+  }
+}
 function renderNovelStoryboard(c) {
   const staleLine = (S.freshness && S.freshness.any_stale)
     ? `<div class="alert alert--amber" style="margin-bottom:12px"><div class="text-sm">⚠ 上游小说已修改，以下产物待更新：${[['prompt','提示词'],['image','图片'],['video','视频']].filter(([k]) => S.freshness.stages?.[k]?.stale).map(([,l]) => l).join('、') || '（无）'}。请到「章节创作」点「从小说重跑下游」同步修复。</div></div>`
@@ -3343,6 +3506,231 @@ function showModal(title, bodyHTML, onConfirm) {
   };
 }
 
+/* ═══════════ 根据小说自动补充设定（推导 + 预览 + 同步） ═══════════ */
+async function showDeriveSettingsModal(projectId) {
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal" style="width:720px;max-width:95vw">
+      <div class="modal__header"><div class="modal__title">🤖 根据小说自动补充设定</div><button class="modal__close" id="dsClose">✕</button></div>
+      <div class="modal__body">
+        <div class="text-xs text-muted mb-3">基于该项目已导入的小说正文，由大模型自动推导 <strong>世界观 / 主要角色 / 故事梗概</strong>。下方为预览，确认后点「同步到项目」才会写入（不会覆盖你已有的内容，角色只新增、不重名覆盖）。</div>
+        <div id="dsBody" class="text-sm text-muted">⏳ 正在分析小说正文并推导设定…</div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" id="dsCancel">关闭</button>
+        <button class="btn btn--primary" id="dsSync" style="display:none">✅ 同步到项目</button>
+      </div>
+    </div>
+  `;
+  modal.classList.add('show');
+  const close = () => modal.classList.remove('show');
+  modal.querySelector('#dsClose').onclick = close;
+  modal.querySelector('#dsCancel').onclick = close;
+  const body = modal.querySelector('#dsBody');
+  const syncBtn = modal.querySelector('#dsSync');
+
+  let derived = null;
+  try {
+    const r = await api(`/novel/${projectId}/derive-settings`, { method: 'POST', body: {} });
+    if (!r.ok) { body.innerHTML = `<span style="color:var(--rose)">${esc(r.error || '推导失败')}</span>`; return; }
+    derived = r.data;
+    const w = derived.world || {};
+    const chars = derived.characters || [];
+    const o = derived.outline || {};
+    body.innerHTML = `
+      <div class="card mb-3" style="border-left:3px solid var(--purple)">
+        <div class="section-title mb-1" style="font-size:.85rem">🌍 世界观设定</div>
+        <div class="text-sm" style="line-height:1.7">
+          <div><strong>名称：</strong>${esc(w.name || '—')}</div>
+          <div><strong>类型/时代：</strong>${esc(w.world_type || '—')} / ${esc(w.era || '—')}</div>
+          <div><strong>地理：</strong>${esc((w.geography||'').slice(0,200) || '—')}</div>
+          <div><strong>力量体系：</strong>${esc((w.power_system||'').slice(0,200) || '—')}</div>
+        </div>
+      </div>
+      <div class="card mb-3" style="border-left:3px solid var(--blue)">
+        <div class="section-title mb-1" style="font-size:.85rem">👥 主要角色（${chars.length} 个）</div>
+        <div class="text-sm" style="line-height:1.7">
+          ${chars.length ? chars.map(c => `<div>• <strong>${esc(c.name)}</strong>（${esc(c.role||'配角')}）：${esc((c.appearance||'').slice(0,80) || c.background || '—')}</div>`).join('') : '<span class="text-muted">未识别到角色</span>'}
+        </div>
+      </div>
+      <div class="card mb-2" style="border-left:3px solid var(--amber)">
+        <div class="section-title mb-1" style="font-size:.85rem">📋 故事梗概</div>
+        <div class="text-sm" style="line-height:1.7">
+          <div><strong>一句话：</strong>${esc(o.logline || '—')}</div>
+          <div><strong>梗概：</strong>${esc((o.synopsis||'').slice(0,300) || '—')}</div>
+        </div>
+      </div>
+    `;
+    syncBtn.style.display = '';
+  } catch (e) {
+    body.innerHTML = `<span style="color:var(--rose)">推导失败：${esc(e.message || e)}</span>`;
+    return;
+  }
+
+  syncBtn.onclick = async () => {
+    syncBtn.disabled = true; syncBtn.textContent = '同步中…';
+    try {
+      const r = await api(`/novel/${projectId}/sync-settings`, { method: 'POST', body: { data: derived } });
+      toast(`已同步：新增角色 ${r.characters_added.length} 个` + (r.world_created ? '，新建世界观' : '，世界观已补齐') + (r.outline_created ? '，新建大纲' : ''));
+      close();
+      if (S.novelProject && S.novelProject.id === projectId) await loadNovelData();
+    } catch (e) {
+      toast('同步失败：' + (e.message || e));
+      syncBtn.disabled = false; syncBtn.textContent = '✅ 同步到项目';
+    }
+  };
+}
+
+/* ═══════════ 生成任务：配置 + 内联进度 + 暂停/取消 ═══════════ */
+async function showRunModal(opts) {
+  /* opts: {
+       stage,                // 流水线 stage key，如 pipeline.novel2script
+       stageLabel,           // 展示名
+       projectName, projectId, chapterId, scriptId,
+       onDone,               // 成功回调
+       nextLabel, onNext     // 完成后的「下一步」按钮
+     }
+     在弹窗内：① 可编辑本次提示词 + 选择模型/服务商；② 提交后实时进度条 + 暂停/继续/停止。
+  */
+  const modal = document.getElementById('modal');
+  if (!S.promptTemplates) { try { S.promptTemplates = await api('/prompt-templates'); } catch (e) { S.promptTemplates = {}; } }
+  if (!S.providers.length) { try { S.providers = await api('/providers'); } catch (e) {} }
+  // prompt-templates 的 key 不带 pipeline. 前缀（如 novel2script / gen_prompts）
+  const tmplKey = (opts.stage || '').replace(/^pipeline\./, '');
+  const pt = (S.promptTemplates && S.promptTemplates[tmplKey] && S.promptTemplates[tmplKey].default) || '';
+  let savedPrompt = '';
+  if (opts.projectId) {
+    try { const sc = await api(`/projects/${opts.projectId}/config/stage/${tmplKey}`); savedPrompt = sc.system_prompt || ''; } catch (e) {}
+  }
+  const defaultPrompt = savedPrompt || pt;
+
+  modal.innerHTML = `
+    <div class="modal" style="width:660px;max-width:94vw">
+      <div class="modal__header"><div class="modal__title">🤖 ${esc(opts.stageLabel || opts.stage)} · 生成配置</div><button class="modal__close" id="rmClose">✕</button></div>
+      <div class="modal__body">
+        <div class="text-xs text-muted mb-2">可在此修改本次生成的<strong>大模型提示词</strong>与<strong>模型</strong>；留空则沿用项目/全局配置。本次修改仅本次生效，不覆盖保存的项目配置。</div>
+        <div class="form-group">
+          <label>大模型提示词（系统默认已预填，可改）</label>
+          <textarea id="rmPrompt" style="min-height:170px;font-size:.82rem;line-height:1.6">${esc(defaultPrompt)}</textarea>
+        </div>
+        <div class="flex gap-3">
+          <div class="form-group" style="flex:1"><label>服务商</label><select id="rmProvider"><option value="">（使用项目/全局默认）</option>${S.providers.map(p => `<option value="${p.key}">${esc(p.name)}</option>`).join('')}</select></div>
+          <div class="form-group" style="flex:1"><label>模型</label><input type="text" id="rmModel" list="rmModelList" placeholder="选服务商后自动列出，也可手填" autocomplete="off"><datalist id="rmModelList"></datalist></div>
+        </div>
+        <details class="text-sm" style="margin-top:4px">
+          <summary style="cursor:pointer;color:var(--t2)">高级参数（温度 / 最大 Token）</summary>
+          <div class="flex gap-3 mt-2">
+            <div class="form-group" style="flex:1"><label>Temperature</label><input type="number" id="rmTemp" placeholder="默认 0.7" min="0" max="2" step="0.1"></div>
+            <div class="form-group" style="flex:1"><label>Max Tokens</label><input type="number" id="rmMax" placeholder="默认 4096" min="256" max="32768"></div>
+          </div>
+        </details>
+        <div id="rmProgressWrap" style="display:none;margin-top:14px">
+          <div class="flex items-center justify-between mb-1">
+            <span id="rmStatus" class="text-sm">准备中…</span>
+            <span id="rmPct" class="text-xs text-muted">0%</span>
+          </div>
+          <div class="progress"><div class="progress__fill" id="rmFill" style="width:0%"></div></div>
+          <div id="rmLog" class="text-xs text-muted mt-2" style="max-height:150px;overflow-y:auto;white-space:pre-wrap;line-height:1.5"></div>
+          <div class="flex gap-2 mt-3" id="rmBtns"></div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button class="btn" id="rmCancel">关闭</button>
+        <button class="btn btn--primary" id="rmStart">🚀 开始生成</button>
+      </div>
+    </div>
+  `;
+  modal.classList.add('show');
+  const close = () => { if (timer) { clearInterval(timer); timer = null; } modal.classList.remove('show'); };
+  modal.querySelector('#rmClose').onclick = close;
+  modal.querySelector('#rmCancel').onclick = close;
+
+  // 服务商 → 模型联动：选中服务商后自动列出该服务商已配置的模型
+  const provSel = modal.querySelector('#rmProvider');
+  const modelInput = modal.querySelector('#rmModel');
+  const modelList = modal.querySelector('#rmModelList');
+  function syncModels() {
+    const prov = S.providers.find(p => p.key === provSel.value);
+    const models = (prov && Array.isArray(prov.models)) ? prov.models : [];
+    modelList.innerHTML = models.map(m => `<option value="${esc(m)}">`).join('');
+    if (models.length && !modelInput.value) { modelInput.value = models[0]; }
+  }
+  provSel.onchange = syncModels;
+  syncModels();
+
+  const wrap = modal.querySelector('#rmProgressWrap');
+  const fill = modal.querySelector('#rmFill');
+  const pct = modal.querySelector('#rmPct');
+  const status = modal.querySelector('#rmStatus');
+  const logEl = modal.querySelector('#rmLog');
+  const btns = modal.querySelector('#rmBtns');
+  let timer = null;
+
+  function renderControls(t) {
+    btns.innerHTML = '';
+    if (t.status === 'running') {
+      btns.appendChild(mkBtn('⏸ 暂停', 'btn--amber', async () => { await api(`/tasks/${t.id}/pause`, { method: 'POST' }); toast('已暂停'); }));
+      btns.appendChild(mkBtn('⏹ 停止', 'btn--rose', async () => { await api(`/tasks/${t.id}/stop`, { method: 'POST' }); toast('已停止'); }));
+    } else if (t.status === 'paused') {
+      btns.appendChild(mkBtn('▶ 继续', 'btn--green', async () => { await api(`/tasks/${t.id}/resume`, { method: 'POST' }); toast('已继续'); }));
+      btns.appendChild(mkBtn('⏹ 停止', 'btn--rose', async () => { await api(`/tasks/${t.id}/stop`, { method: 'POST' }); toast('已停止'); }));
+    } else if (opts.nextLabel && opts.onNext && t.status === 'success') {
+      btns.appendChild(mkBtn(opts.nextLabel, 'btn--primary', () => { close(); opts.onNext(); }));
+    }
+  }
+  function mkBtn(label, cls, onclick) {
+    const b = document.createElement('button');
+    b.className = `btn btn--sm ${cls}`; b.textContent = label; b.onclick = onclick; return b;
+  }
+
+  async function poll(taskId) {
+    try {
+      const t = await api(`/tasks/${taskId}`);
+      fill.style.width = (t.progress || 0) + '%';
+      pct.textContent = (t.progress || 0) + '%';
+      status.textContent = t.message || t.status;
+      let logs = t.logs;
+      if (typeof logs === 'string') { try { logs = JSON.parse(logs || '[]'); } catch (e) { logs = []; } }
+      if (Array.isArray(logs)) logEl.textContent = logs.map(l => (l.time ? l.time + ' ' : '') + l.msg).join('\n');
+      renderControls(t);
+      if (['success', 'fail', 'cancelled'].includes(t.status)) {
+        if (timer) { clearInterval(timer); timer = null; }
+        if (t.status === 'success') status.innerHTML = '<span style="color:var(--green)">✅ 完成</span>';
+        else if (t.status === 'cancelled') status.innerHTML = '<span style="color:var(--amber)">已取消</span>';
+        else status.innerHTML = '<span style="color:var(--rose)">❌ 失败：' + esc(t.message || '') + '</span>';
+        if (t.status !== 'cancelled' && opts.onDone) opts.onDone(t);
+        return;
+      }
+    } catch (e) { /* 瞬时错误忽略，下次轮询重试 */ }
+  }
+
+  modal.querySelector('#rmStart').onclick = async () => {
+    const body = {
+      stage: opts.stage,
+      project_name: opts.projectName,
+      project_id: opts.projectId,
+      chapter_id: opts.chapterId,
+      script_id: opts.scriptId,
+      custom_prompt: modal.querySelector('#rmPrompt').value.trim(),
+      provider_key: modal.querySelector('#rmProvider').value,
+      model: modal.querySelector('#rmModel').value.trim(),
+    };
+    const temp = modal.querySelector('#rmTemp').value;
+    const max = modal.querySelector('#rmMax').value;
+    if (temp) body.temperature = parseFloat(temp);
+    if (max) body.max_tokens = parseInt(max);
+    try {
+      const r = await api('/pipeline/run', { method: 'POST', body });
+      modal.querySelector('#rmStart').style.display = 'none';
+      wrap.style.display = 'block';
+      timer = setInterval(() => poll(r.task_id), 1200);
+      poll(r.task_id);
+    } catch (e) {
+      toast('提交失败：' + (e.message || e));
+    }
+  };
+}
+
 function showImportInkosModal() {
   const pid = S.novelProject && S.novelProject.id;
   if (!pid) { toast('请先打开一个小说项目'); return; }
@@ -3507,13 +3895,11 @@ function showAddTermModal() {
 
 /* ═══════════ ACTIONS ═══════════ */
 async function openProject(id) {
+  // 统一入口：项目管理卡片直接进「创作工作台」（与「我的创作」同一套界面）
   const p = S.projects.find(x => x.id === id);
   if (!p) return;
-  S.currentProject = p;
-  S.view = 'project-detail';
-  S.currentTab = 'chapters';
-  render();
-  await loadChapters(id);
+  S.currentProject = null;
+  await openNovelProject(id);
 }
 
 async function runPipeline(stage, extra = {}) {

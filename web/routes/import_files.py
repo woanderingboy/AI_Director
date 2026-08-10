@@ -537,3 +537,65 @@ def import_external(project_id):
         "message": f"已导入分镜提示词：{os.path.basename(dst)}"
                    + ("（已标记最终版）" if as_final else ""),
     })
+
+
+@bp.route("/<int:project_id>/import-script", methods=["POST"])
+def import_script(project_id):
+    """直接上传外部剧本 JSON（含 scenes/shots），建库并写入 05_Script（按标题联动章节）。
+
+    JSON body: {"filename": "xxx.json", "content": "<json 文本>"}
+    标题去 _script 后缀后与小说章节标题匹配；无匹配则新建草稿章节以便联动。"""
+    proj, proj_path = _proj_path(project_id)
+    if not proj:
+        return jsonify({"error": "项目不存在"}), 404
+    data = request.get_json(silent=True) or {}
+    filename = (data.get("filename") or "").strip()
+    content = data.get("content") or ""
+    if not filename:
+        return jsonify({"error": "缺少 filename"}), 400
+    if not filename.lower().endswith(".json"):
+        filename += ".json"
+    try:
+        parsed = json.loads(content)
+    except Exception as e:
+        return jsonify({"error": f"内容不是合法 JSON：{e}"}), 400
+    if not isinstance(parsed, dict) or ("scenes" not in parsed and "shots" not in parsed):
+        return jsonify({"error": "剧本 JSON 需包含 scenes 或 shots 字段"}), 400
+
+    script_dir = _sub(proj_path, "script")
+    os.makedirs(script_dir, exist_ok=True)
+    dst = os.path.join(script_dir, filename)
+    if os.path.exists(dst):
+        base, e = os.path.splitext(dst)
+        i = 1
+        while os.path.exists(f"{base}_{i}{e}"):
+            i += 1
+        dst = f"{base}_{i}{e}"
+    with open(dst, "w", encoding="utf-8") as f:
+        f.write(content)
+
+    from web.models.database import ScriptModel
+    base = os.path.splitext(filename)[0].replace("_script", "")
+    ch = NovelChapter.query.filter_by(project_id=project_id, title=base).first()
+    if not ch:
+        # 无匹配章节：新建草稿章节以便下游联动
+        num = _next_chapter_number(project_id)
+        ch = NovelChapter(
+            project_id=project_id, chapter_number=num, title=base[:200],
+            summary="", content="", status="draft",
+        )
+        ch.word_count = 0
+        db.session.add(ch)
+        db.session.flush()
+
+    sm = ScriptModel(
+        chapter_id=None, novel_chapter_id=ch.id,
+        filename=os.path.basename(dst), file_path=dst,
+        shot_count=len(parsed.get("shots", [])) or len(parsed.get("scenes", [])),
+    )
+    db.session.add(sm)
+    db.session.commit()
+    return jsonify({
+        "ok": True, "filename": os.path.basename(dst), "script_id": sm.id,
+        "chapter_id": ch.id, "message": f"已导入剧本：{os.path.basename(dst)}",
+    })

@@ -165,6 +165,15 @@ def create_app(config_overrides=None):
     app.register_blueprint(script_export_bp, url_prefix="/api/script-export")
     app.register_blueprint(subtitle_bp, url_prefix="/api/subtitle")
 
+    @app.after_request
+    def _no_cache_dev(resp):
+        # 本地自托管开发环境：禁止浏览器缓存页面/接口，避免"改了代码刷新还是旧版"的坑。
+        # 生产若需缓存可移除此钩子或加条件判断。
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+        return resp
+
     @app.route("/")
     def index():
         return render_template("index.html")

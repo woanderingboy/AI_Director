@@ -89,6 +89,47 @@ class PipelineService:
             parts.append(f"\n自定义指令：\n{custom}")
         return "\n".join(parts)
 
+    def _resolve_stage_input(self, stage, project_id=None, kwargs=None):
+        """解析某阶段的 LLM 输入：返回 (client, llm_config, custom_prompt)。
+
+        优先级：运行请求中显式传入的覆盖（自定义提示词 / 服务商 / 模型 / 温度 / max_tokens）
+        > 项目阶段配置 > 项目全局配置 > 系统默认。
+        与项目配置行为一致：自定义提示词以默认模板为基底，叠加用户输入。"""
+        kwargs = kwargs or {}
+
+        # 1) 提示词：优先用临时覆盖，否则取项目/默认
+        custom_prompt = kwargs.get("custom_prompt")
+        if custom_prompt is None:
+            custom_prompt = self._get_stage_prompt(stage, project_id)
+        else:
+            from web.services.prompt_templates import DEFAULT_PROMPTS
+            default = DEFAULT_PROMPTS.get(stage, "")
+            custom_prompt = (default + "\n\n自定义指令：\n" + custom_prompt) if default else custom_prompt
+
+        # 2) 客户端与模型：先取项目/全局配置
+        client, llm_config = self._get_client_for_stage(stage, project_id)
+
+        override_provider = kwargs.get("provider_key")
+        override_model = kwargs.get("model")
+        override_temp = kwargs.get("temperature")
+        override_max = kwargs.get("max_tokens")
+        if override_provider or override_model or override_temp is not None or override_max is not None:
+            from web.models.database import Provider
+            from web.services.llm_client import LLMClient
+            provider_key = override_provider or client.provider_key
+            api_key = ""
+            provider = Provider.query.get(provider_key)
+            if provider and provider.api_key:
+                api_key = provider.api_key
+            model = override_model or client.model
+            client = LLMClient(provider_key, api_key, model=model)
+            if override_temp is not None:
+                llm_config["temperature"] = override_temp
+            if override_max is not None:
+                llm_config["max_tokens"] = override_max
+
+        return client, llm_config, custom_prompt
+
     def _build_consistency_lock_map(self, project_id=None):
         """构建角色一致性锁映射：{角色名: 锁定注入的视觉描述}。仅含开启锁且描述非空者。"""
         if not project_id:
@@ -288,9 +329,8 @@ class PipelineService:
 
         # 构建全局设定上下文
         globals_ctx = self._build_globals_context(project_id)
-        custom_prompt = self._get_stage_prompt("novel2script", project_id)
+        client, llm_config, custom_prompt = self._resolve_stage_input("novel2script", project_id, kwargs)
 
-        client, llm_config = self._get_client_for_stage("novel2script", project_id)
         generator = ScriptGenerator(provider_key=client.provider_key, api_key=client.api_key, model=client.model)
         generator.client = client
         generator.temperature = llm_config["temperature"]
@@ -445,9 +485,8 @@ class PipelineService:
 
         # 构建全局设定上下文
         globals_ctx = self._build_globals_context(proj_id)
-        custom_prompt = self._get_stage_prompt("gen_prompts", proj_id)
+        client, llm_config, custom_prompt = self._resolve_stage_input("gen_prompts", proj_id, kwargs)
 
-        client, llm_config = self._get_client_for_stage("gen_prompts", proj_id)
         prompt_gen = PromptGenerator(provider_key=client.provider_key, api_key=client.api_key, model=client.model)
         prompt_gen.client = client
         prompt_gen.temperature = llm_config["temperature"]

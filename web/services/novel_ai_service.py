@@ -250,3 +250,93 @@ def generate_scene_four_angle(scene, project_id=None):
     except Exception:
         raw = _chat("scene", prompt, user, project_id)
     return _parse_view_json(raw, ["front", "back", "side", "over"])
+
+
+def derive_settings_from_novel(novel_text, project_id=None):
+    """从已导入的小说正文推导世界观 + 主要角色 + 故事梗概（供用户预览后选择性同步）。
+
+    返回 dict: {
+        world: {name, world_type, era, geography, power_system, social_structure,
+                history, rules, culture, ai_context},
+        characters: [{name, role, gender, age, appearance, personality,
+                      background, ability, motivation, relationships, visual_prompt}],
+        outline: {logline, theme, synopsis, conflict, ending},
+    }
+    不写库，仅 LLM 推导。
+    """
+    from web.services.prompt_templates import DEFAULT_PROMPTS
+    import re
+
+    # 截断过长正文，避免超 token
+    text = (novel_text or "").strip()
+    if len(text) > 12000:
+        text = text[:12000] + "\n…（已截断）"
+
+    # 1) 推导世界观
+    world_prompt = DEFAULT_PROMPTS.get("world", "") or "你是一名专业的世界观架构师。"
+    world_raw = _chat_json(
+        "world", world_prompt,
+        f"请从以下小说正文中提炼并构建该作品的完整世界观设定（json 字段见下）。\n\n小说正文：\n{text}",
+        project_id,
+    )
+    world = _parse_view_json(world_raw, [
+        "name", "world_type", "era", "geography", "power_system",
+        "social_structure", "history", "rules", "culture",
+    ])
+    world["ai_context"] = (world_raw if isinstance(world_raw, str) else json.dumps(world_raw, ensure_ascii=False))[:6000]
+
+    # 2) 推导主要角色
+    char_prompt = (DEFAULT_PROMPTS.get("character", "") or "你是一名专业的人物设定师。") + \
+        "\n\n请基于世界观与小说正文，提炼主要角色（3-8 个）。"
+    char_raw = _chat_json(
+        "character", char_prompt,
+        f"世界观摘要：{world.get('ai_context','')}\n\n小说正文：\n{text}\n\n"
+        f"请输出主要角色数组，每个角色含：name, role(主角/配角/反派/路人), gender, age, "
+        f"appearance(外貌), personality(性格), background(背景), ability(能力/技能), "
+        f"motivation(动机目标), relationships(人物关系), visual_prompt(可用于AI出图的视觉提示词)。",
+        project_id,
+    )
+    characters = []
+    if isinstance(char_raw, dict):
+        arr = char_raw.get("characters") or char_raw.get("roles") or []
+        if isinstance(arr, list):
+            characters = arr
+    elif isinstance(char_raw, list):
+        characters = char_raw
+    # 规整字段
+    clean_chars = []
+    for c in characters:
+        if not isinstance(c, dict):
+            continue
+        name = str(c.get("name") or "").strip()
+        if not name:
+            continue
+        clean_chars.append({
+            "name": name,
+            "role": str(c.get("role") or "配角").strip(),
+            "gender": str(c.get("gender") or "").strip(),
+            "age": str(c.get("age") or "").strip(),
+            "appearance": str(c.get("appearance") or "").strip(),
+            "personality": str(c.get("personality") or "").strip(),
+            "background": str(c.get("background") or "").strip(),
+            "ability": str(c.get("ability") or "").strip(),
+            "motivation": str(c.get("motivation") or "").strip(),
+            "relationships": str(c.get("relationships") or "").strip(),
+            "visual_prompt": str(c.get("visual_prompt") or "").strip(),
+        })
+    characters = clean_chars[:8]
+
+    # 3) 推导故事梗概
+    outline_prompt = (
+        "你是一名专业的编剧和故事架构师。根据小说正文，提炼故事梗概。\n"
+        "严格只输出 JSON：{\"logline\":\"一句话概括\",\"theme\":\"核心主题\","
+        "\"synopsis\":\"故事梗概(300-500字)\",\"conflict\":\"核心矛盾/冲突\",\"ending\":\"结局走向\"}，用中文。"
+    )
+    outline_raw = _chat_json(
+        "outline", outline_prompt,
+        f"小说正文：\n{text}",
+        project_id,
+    )
+    outline = _parse_view_json(outline_raw, ["logline", "theme", "synopsis", "conflict", "ending"])
+
+    return {"world": world, "characters": characters, "outline": outline}

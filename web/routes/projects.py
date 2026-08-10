@@ -7,6 +7,35 @@ import os
 bp = Blueprint("projects", __name__)
 
 
+@bp.route("/<int:project_id>/scripts", methods=["GET"])
+def list_project_scripts(project_id):
+    """返回项目的剧本列表（含 script_id、文件名、标题、镜头数），供剧本标签预览与「下一步」使用。"""
+    project = ProjectModel.query.get_or_404(project_id)
+    from web.models.database import ScriptModel
+    # 仅保留属于本项目的剧本：通过 chapter / novel_chapter 关联项目
+    from web.models.database import ChapterModel
+    from web.models.novel_models import NovelChapter
+    result = []
+    for sm in ScriptModel.query.all():
+        proj_id = None
+        if sm.chapter_id:
+            ch = ChapterModel.query.get(sm.chapter_id)
+            proj_id = ch.project_id if ch else None
+        elif sm.novel_chapter_id:
+            nc = NovelChapter.query.get(sm.novel_chapter_id)
+            proj_id = nc.project_id if nc else None
+        if proj_id != project_id:
+            continue
+        result.append({
+            "id": sm.id,
+            "filename": sm.filename,
+            "shot_count": sm.shot_count or 0,
+            "created_time": sm.created_time.strftime("%Y-%m-%d %H:%M") if sm.created_time else "",
+        })
+    result.sort(key=lambda x: x["filename"])
+    return jsonify(result)
+
+
 @bp.route("", methods=["GET"])
 def list_projects():
     projects = ProjectModel.query.order_by(ProjectModel.updated_time.desc()).all()
