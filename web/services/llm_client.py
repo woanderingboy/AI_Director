@@ -48,7 +48,7 @@ class LLMClient:
         self.api_key = api_key
         self.base_url = base_url or self.PROVIDERS.get(provider_key, {}).get("endpoint", "")
         self.model = model or self._default_model()
-        self.offline = os.environ.get("AI_DIRECTOR_OFFLINE", "0") == "1"
+        self.offline = os.environ.get("AI_DIRECTOR_OFFLINE", "1") == "1"
 
     def _default_model(self):
         defaults = {

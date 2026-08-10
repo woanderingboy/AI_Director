@@ -13,7 +13,7 @@ class ImageClient:
         self.api_key = api_key
         self.base_url = base_url or "https://ark.cn-beijing.volces.com/api/v3/images/generations"
         self.model = model
-        self.offline = os.environ.get("AI_DIRECTOR_OFFLINE", "0") == "1"
+        self.offline = os.environ.get("AI_DIRECTOR_OFFLINE", "1") == "1"
 
     def generate(self, prompt, negative_prompt="", size="1024x1024", n=1):
         """生成图片，返回 list[str(b64)]；离线或无 Key 返回 None；失败返回错误信息字符串。"""

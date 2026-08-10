@@ -19,12 +19,24 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-echo [1/3] 检查 Python 版本...
+echo [1/4] 检查 Python 版本...
 python --version
 echo.
 
+:: 准备虚拟环境（隔离依赖，避免污染系统 Python）
+echo [2/4] 准备虚拟环境 (.venv)...
+if not exist ".venv" (
+    python -m venv .venv
+    echo   已创建虚拟环境 .venv
+) else (
+    echo   复用已有 .venv
+)
+call .venv\Scripts\activate.bat
+echo   已激活虚拟环境
+echo.
+
 :: 安装依赖
-echo [2/3] 安装依赖（首次运行较慢）...
+echo [3/4] 安装依赖（首次运行较慢）...
 pip install -r requirements.txt -q 2>nul
 if %errorlevel% neq 0 (
     echo 正在使用国内镜像安装...
@@ -34,12 +46,16 @@ echo 依赖安装完成！
 echo.
 
 :: 启动服务
-echo [3/3] 启动 AI Director...
+echo [4/4] 启动 AI Director...
 echo.
 echo  ╔══════════════════════════════════════════╗
 echo  ║  浏览器访问: http://127.0.0.1:5000       ║
 echo  ║  按 Ctrl+C 停止服务                      ║
 echo  ╚══════════════════════════════════════════╝
+echo.
+echo  [提示] 默认离线模式(Mock)，无需任何 API Key 即可跑通全功能。
+echo  [提示] 首次使用字幕/语音功能，faster-whisper 会自动下载语音模型(约数百 MB)，请保持联网。
+echo  [提示] 要接入真实大模型：cp .env.example .env 并填入 Key，再把 AI_DIRECTOR_OFFLINE 改为 0。
 echo.
 
 set AI_DIRECTOR_OFFLINE=1

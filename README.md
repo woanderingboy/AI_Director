@@ -23,26 +23,47 @@
 
 ## 快速开始
 
+### 方式一 · 一键启动（推荐，零配置）
+
+下载项目后，直接运行对应脚本即可。**无需填写任何 API Key 也能跑通全功能**（默认离线 Mock 模式）：
+
 ```bash
-# 1. （推荐）创建虚拟环境并安装依赖
-python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+# Linux / macOS
+./start.sh
 
-# 2. 配置环境变量（二选一）
-#   方案 A · 真实模型：复制模板并填入你的 Key
-cp .env.example .env               # 然后编辑 .env，填入 VOLC_API_KEY 等
-#   方案 B · 离线体验：直接设置环境变量（无需任何 Key）
-#   Windows(PowerShell):  $env:AI_DIRECTOR_OFFLINE="1"
-#   Linux/macOS:          export AI_DIRECTOR_OFFLINE=1
-
-# 3. 启动服务
-python app.py
-# 浏览器访问 http://127.0.0.1:5000
-
-# 4. 离线模式（不调真实 LLM，用 Mock 数据跑通全链路）
-AI_DIRECTOR_OFFLINE=1 python app.py
+# Windows（双击，或在 CMD / PowerShell 中运行）
+start.bat
 ```
+
+脚本会自动完成：检查 Python → 创建并激活虚拟环境 `.venv` → 安装依赖 → 以离线模式启动。
+启动后浏览器打开 **http://127.0.0.1:5000** 即可使用。
+
+> 离线模式下所有大模型调用返回 Mock 数据，用于零成本验证全流程；要真正出图 / 成片，按「方式二」配置 Key 并关闭离线即可。
+> 首次使用字幕 / 语音功能时，`faster-whisper` 会自动下载语音识别模型（约数百 MB），请保持联网。
+
+### 方式二 · 接入真实大模型（可选）
+
+```bash
+cp .env.example .env
+# 编辑 .env：填入 VOLC_API_KEY（火山引擎方舟）等，并把 AI_DIRECTOR_OFFLINE 改为 0
+python app.py
+```
+
+### 方式三 · 手动启动（进阶）
+
+```bash
+python -m venv .venv
+source .venv/bin/activate     # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python app.py                 # 默认离线，无需 Key
+```
+
+### 离线 / 在线切换
+
+| 模式 | 环境变量 | 说明 |
+|------|----------|------|
+| 离线（默认） | `AI_DIRECTOR_OFFLINE=1` | Mock 数据，免 Key，跑通全链路 |
+| 在线 | `AI_DIRECTOR_OFFLINE=0` + 已配置 Key | 调用真实火山引擎等出图 / 成片 |
 
 ## 目录结构
 
