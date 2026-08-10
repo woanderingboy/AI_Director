@@ -4,7 +4,7 @@
 覆盖用户可能进行的多种操作，重点验证：
   1) 局部修改上游（小说/场景/删除）→ 下游产物是否被标 stale（联动诊断）
   2) 重跑下游 → stale 是否被清除（联动修复）
-  3) 用户在分镜画布手改提示词 / 标记最终版 → 重跑是否被覆盖（联动保护缺陷检测）
+  3) 分镜提示词 默认→画布手改(文件锁)→标记最终版(预设)→重置默认 全链路是否报错/被覆盖（联动保护）
   4) 角色一致性锁注入（联动回归）
   5) 越界/缺失/重复导入等边界是否优雅报错（不 500）
   6) scan-novels 重复扫描幂等
@@ -240,38 +240,78 @@ def phase4_rerun(pid, name, chs0_id):
           f"fr={fr.get('novel_version')} proj={get_project(pid).get('novel_version')}")
 
 
-def phase5_final_protection(pid, name, chs0_id):
-    emit("── P5 用户在分镜画布手改 + 标记最终版 → 重跑是否被覆盖（联动保护缺陷检测）──")
+def phase5_default_modify_preset_reset(pid, name, chs0_id):
+    emit("── P5 默认提示词 → 画布手改(文件锁) → 标记最终版(预设) → 重置默认 全链路 ──")
     pfs = prompt_files(name)
     if not pfs:
         check("P5 有提示词文件可测", False)
         return
     fp = pfs[0]
-    data = read_prompt(fp)
-    tag = "【用户精修标记XYZ】"
-    data["video_prompt"] = (data.get("video_prompt", "") or "") + tag
-    write_prompt(fp, data)
+    stem = os.path.splitext(os.path.basename(fp))[0]
+
+    # P5a：默认生成的提示词文件不应带用户锁（否则默认也会被「锁死」无法重跑）
+    d0 = read_prompt(fp)
+    check("P5a 默认生成文件无 _locked 锁", d0.get("_locked") is not True,
+          "默认提示词可被重跑覆盖（未误锁）" if d0.get("_locked") is not True
+          else "缺陷：默认文件被误上锁")
+
+    # P5b：用户在画布直接编辑（不标最终版）→ 写文件内 _locked → 重跑应保留
+    tag_lock = "【画布手改LOCK标记】"
+    d0["video_prompt"] = (d0.get("video_prompt", "") or "") + tag_lock
+    d0["_locked"] = True
+    write_prompt(fp, d0)
+    svc = PipelineService(ROOT_PATH)
+    with app.app_context():
+        svc.run_all(project_name=name, chapter_id=chs0_id, project_id=pid, progress=DummyProgress())
+    after_lock = read_prompt(fp)
+    kept_lock = (tag_lock in (after_lock.get("video_prompt") or "")) and after_lock.get("_locked") is True
+    check("P5b 画布手改(in-file锁)重跑保留", kept_lock,
+          "重跑后用户手改与 _locked 标记均保留，gen_prompts 未覆盖" if kept_lock
+          else "缺陷：重跑覆盖了仅以文件锁保护的用户手改", severity="FAIL")
+
+    # P5c：标记最终版(预设) → 重跑应保留（DB is_final 路径）
     with open(fp, "rb") as f:
         r = client.post(
             f"/api/import/{pid}/import-external",
             data={"file": (f, os.path.basename(fp), "application/json"), "kind": "prompt",
-                  "asset_key": os.path.splitext(os.path.basename(fp))[0], "as_final": "true"},
+                  "asset_key": stem, "as_final": "true"},
             content_type="multipart/form-data",
         )
     j = r.get_json()
-    check("P5 标记最终版操作返回 ok", j.get("ok") is True, str(r.status_code))
+    check("P5c 标最终版操作返回 ok", j.get("ok") is True, str(r.status_code))
     with app.app_context():
         row = AssetVersion.query.filter_by(project_id=pid, asset_type="storyboard_prompt", is_final=True).first()
-    check("P5 最终版已登记(is_final=1)", row is not None)
-    # 用户点「重跑下游」（带 progress，确保真正重跑 gen_prompts）
-    svc = PipelineService(ROOT_PATH)
+    check("P5c 最终版已登记(is_final=1)", row is not None)
     with app.app_context():
         svc.run_all(project_name=name, chapter_id=chs0_id, project_id=pid, progress=DummyProgress())
-    new_data = read_prompt(fp)
-    preserved = tag in (new_data.get("video_prompt") or "")
-    check("P5 重跑保留手改分镜(final 保护)", preserved,
-          "重跑后用户精修(【用户精修标记XYZ】)已保留，gen_prompts 未覆盖已定版分镜" if preserved
-          else "缺陷：重跑覆盖了用户已定版分镜", severity="FAIL")
+    after_final = read_prompt(fp)
+    kept_final = tag_lock in (after_final.get("video_prompt") or "")
+    check("P5c 标最终版后重跑仍保留手改", kept_final,
+          "重跑后用户精修已保留" if kept_final else "缺陷：重跑覆盖了已定版分镜", severity="FAIL")
+
+    # P5d：重置成默认版本 → 清 is_final + _locked → 重跑重建默认
+    rr = client.post("/api/pipeline/reset-prompt", json={"project_id": pid, "stem": stem})
+    check("P5d 重置接口返回200", rr.status_code == 200, str(rr.status_code))
+    rj = rr.get_json() or {}
+    check("P5d 重置后文件仍存在(待重跑重建)", rj.get("file_existed") is True, f"changed={rj.get('changed')}")
+    with app.app_context():
+        res = svc.run_all(project_name=name, chapter_id=chs0_id, project_id=pid, progress=DummyProgress())
+    after_reset = read_prompt(fp)
+    reset_ok = (tag_lock not in (after_reset.get("video_prompt") or "")) and after_reset.get("_locked") is not True
+    check("P5d 重置后重跑重建默认(手改被丢弃)", reset_ok,
+          "重跑已重新生成默认提示词，用户手改与锁均清除" if reset_ok
+          else "缺陷：重置后仍保留旧手改", severity="FAIL")
+    # 下游图片/视频不应因重置而断裂
+    imgs = glob.glob(os.path.join(ROOT_PATH, "02_Projects", name, "08_Image", "*.png"))
+    vids = glob.glob(os.path.join(ROOT_PATH, "02_Projects", name, "09_Video", "*.mp4"))
+    check("P5d 重置重跑后下游图片仍存在", len(imgs) > 0, f"imgs={len(imgs)}")
+    check("P5d 重置重跑后下游视频仍存在", len(vids) > 0, f"vids={len(vids)}")
+
+    # P5e：重置接口边界（不报错）
+    r = client.post("/api/pipeline/reset-prompt", json={"project_id": pid})
+    check("P5e 缺 stem 返回400(非500)", r.status_code == 400, str(r.status_code))
+    r = client.post("/api/pipeline/reset-prompt", json={"project_id": 9999999, "stem": stem})
+    check("P5e 未知项目返回404(非500)", r.status_code == 404, str(r.status_code))
 
 
 def phase6_consistency_lock(pid, name):
@@ -366,7 +406,7 @@ def main():
             phase2_edit_chapter_stale(pid, name, chs)
             phase3_scene_and_delete(pid, name, chs)
             phase4_rerun(pid, name, chs0_id)
-            phase5_final_protection(pid, name, chs0_id)
+            phase5_default_modify_preset_reset(pid, name, chs0_id)
         phase6_consistency_lock(pid, name)
         phase8_scan_idempotent(pid, name)  # 删项目前做
         phase7_boundaries(pid, name)        # 内部包含删除项目 + 越界

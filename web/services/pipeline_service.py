@@ -511,23 +511,41 @@ class PipelineService:
         script_stem = os.path.splitext(os.path.basename(script.file_path))[0] if (script and script.file_path) else "unknown"
         base = script_stem
 
-        # 计算「用户已锁定的最终版分镜」：is_final 的 storyboard_prompt AssetVersion。
-        # gen_prompts 重跑时不得删除/覆盖这些文件——预设提示词只是系统默认，用户最终版优先。
+        # 计算「用户已锁定的分镜」——两种方式都视为用户最终版，重跑不得覆盖：
+        #  (1) is_final 的 storyboard_prompt AssetVersion（DB 标记，画布「标记最终版」/预设）
+        #  (2) 提示词文件内的 _locked: true（为分镜画布「直接编辑不标 final」预留的锁机制）
+        # 预设提示词只是系统默认，一旦用户定版/手改，重跑以用户版本为准。
         from web.models.asset_models import AssetVersion
-        final_stems = set()
+        locked_stems = set()
         if proj_id:
             for av in AssetVersion.query.filter_by(
                 project_id=proj_id, asset_type="storyboard_prompt", is_final=True
             ).all():
                 if av.asset_key and av.asset_key.startswith(f"{base}_prompt_"):
-                    final_stems.add(av.asset_key)
+                    locked_stems.add(av.asset_key)
+
+        # 扫描已有提示词文件，收集文件内 _locked 锁（画布直接手改场景预留）
+        try:
+            for _existing in glob.glob(os.path.join(prompt_dir, f"{base}_prompt_*.json")):
+                _estem = os.path.splitext(os.path.basename(_existing))[0]
+                if _estem in locked_stems:
+                    continue
+                try:
+                    with open(_existing, "r", encoding="utf-8") as _ef:
+                        _edata = json.load(_ef)
+                    if isinstance(_edata, dict) and _edata.get("_locked"):
+                        locked_stems.add(_estem)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
         _prev_shots = read_prompt_shots(proj_path, project_name)
         _cur_decl = [
             {"characters": shot_characters.get(shot.get("shot_id"), []),
              "location": shot_locations.get(shot.get("shot_id")) or ""}
             for shot in shots
-            if f"{base}_prompt_S{shot.get('shot_id', 0):02d}" not in final_stems
+            if f"{base}_prompt_S{shot.get('shot_id', 0):02d}" not in locked_stems
         ]
         _legend, _legend_idx = build_legend_from_shots(list(_prev_shots) + _cur_decl)
 
@@ -536,7 +554,7 @@ class PipelineService:
         try:
             for old in glob.glob(os.path.join(prompt_dir, f"{base}_prompt_*.json")):
                 stem = os.path.splitext(os.path.basename(old))[0]
-                if stem in final_stems:
+                if stem in locked_stems:
                     continue
                 os.remove(old)
         except Exception:
@@ -554,9 +572,9 @@ class PipelineService:
             filename = f"{base}_prompt_S{shot_id:02d}.json"
             filepath = os.path.join(prompt_dir, filename)
 
-            # 用户已标记最终版的分镜：保留用户在分镜画布的精修，跳过本镜重写
-            # （预设提示词只是系统默认；一旦用户定版，重跑不得覆盖）。
-            if os.path.splitext(filename)[0] in final_stems:
+            # 用户已锁定（is_final / 文件内 _locked）的分镜：保留用户在分镜画布的精修，跳过本镜重写
+            # （预设提示词只是系统默认；一旦用户定版/手改，重跑不得覆盖）。
+            if os.path.splitext(filename)[0] in locked_stems:
                 continue
 
             # 注入全局设定到每个 prompt（幂等、去重，单一入口）

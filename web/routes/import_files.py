@@ -498,6 +498,16 @@ def import_external(project_id):
         db.session.commit()
         rel = latest.content
         dst = os.path.join(proj_path, rel.replace("/", os.sep))
+        # 复用既有版本时仍确保文件带用户锁标记（用户主动保存即视为手改，重跑保留）
+        try:
+            with open(dst, "r", encoding="utf-8") as _rf:
+                _jd = json.load(_rf)
+            if isinstance(_jd, dict) and not _jd.get("_locked"):
+                _jd["_locked"] = True
+                with open(dst, "w", encoding="utf-8") as _wf:
+                    json.dump(_jd, _wf, ensure_ascii=False, indent=2)
+        except Exception:
+            pass
         return jsonify({
             "ok": True, "kind": "prompt", "filename": os.path.basename(dst),
             "path": dst, "rel": rel, "is_final": as_final, "reused": True,
@@ -514,6 +524,9 @@ def import_external(project_id):
         while os.path.exists(f"{base}_{i}{e}"):
             i += 1
         dst = f"{base}_{i}{e}"
+    # 导入/保存分镜提示词即视为用户手改：写入文件内锁标记，
+    # 使 gen_prompts 重跑时保留（即便不标 is_final）。
+    data["_locked"] = True
     with open(dst, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     rel = os.path.relpath(dst, proj_path).replace(os.sep, "/")
